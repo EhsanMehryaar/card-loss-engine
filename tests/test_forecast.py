@@ -1,4 +1,5 @@
 """Forecast mass-conservation tests are added in Milestone 6."""
+
 from dataclasses import dataclass
 
 import numpy as np
@@ -29,9 +30,7 @@ def test_mass_conservation_and_monotone_default_across_macro_grid() -> None:
 
         assert np.allclose(path["probability_mass"], 1.0)
         assert path["cumulative_chargeoff"].is_monotonic_increasing
-        absorption = path[
-            ["marginal_chargeoff", "marginal_prepaid", "marginal_repurchased"]
-        ]
+        absorption = path[["marginal_chargeoff", "marginal_prepaid", "marginal_repurchased"]]
         assert (absorption >= 0).all().all()
 
 

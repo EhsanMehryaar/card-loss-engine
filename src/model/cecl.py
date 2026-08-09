@@ -10,7 +10,9 @@ but the card-job target makes that future CCF extension an explicit contract.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 
 import fsspec
@@ -21,6 +23,8 @@ import pandas as pd
 from src.config import EngineConfig
 from src.model.forecast import ForecastResult, ForecastSegment, MatrixBuilder, forecast_segments
 from src.model.lgd import LGDModel, fit_lgd_model, lgd_validation_by_era
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -108,9 +112,7 @@ def amortization_schedule(
     if monthly_rate == 0.0:
         payment = balance / remaining_term_months
     else:
-        payment = balance * monthly_rate / (
-            1.0 - (1.0 + monthly_rate) ** -remaining_term_months
-        )
+        payment = balance * monthly_rate / (1.0 - (1.0 + monthly_rate) ** -remaining_term_months)
     schedule = np.zeros(horizon_months, dtype=float)
     current = float(balance)
     for month in range(horizon_months):
@@ -137,11 +139,9 @@ def _decomposition(frame: pd.DataFrame, group: str) -> pd.DataFrame:
                 group: value,
                 "outstanding_balance": balance,
                 "lifetime_pd": pd_total / balance if balance else 0.0,
-                "ead_at_default": (
-                    float((grouped["marginal_pd"] * grouped["ead"]).sum())
-                    / float(grouped["marginal_pd"].sum())
-                    if float(grouped["marginal_pd"].sum()) > 0.0
-                    else 0.0
+                "expected_default_exposure": exposure_total,
+                "ead_at_default_pct_of_opening": (
+                    exposure_total / pd_total if pd_total > 0.0 else 0.0
                 ),
                 "lgd_at_default": (
                     float((default_exposure * grouped["lgd"]).sum()) / exposure_total
@@ -150,9 +150,7 @@ def _decomposition(frame: pd.DataFrame, group: str) -> pd.DataFrame:
                 ),
                 "undiscounted_loss": float(grouped["undiscounted_loss"].sum()),
                 "lifetime_ecl": float(grouped["discounted_loss"].sum()),
-                "ecl_rate": (
-                    float(grouped["discounted_loss"].sum()) / balance if balance else 0.0
-                ),
+                "ecl_rate": (float(grouped["discounted_loss"].sum()) / balance if balance else 0.0),
             }
         )
     return pd.DataFrame.from_records(records)
@@ -215,9 +213,7 @@ def calculate_lifetime_ecl(
         ]
     )
     segment_summary = segment_summary.merge(metadata, on="segment_id", validate="one_to_one")
-    monthly = detailed.groupby(
-        ["month", "as_of_month"], as_index=False, dropna=False
-    ).agg(
+    monthly = detailed.groupby(["month", "as_of_month"], as_index=False, dropna=False).agg(
         undiscounted_loss=("undiscounted_loss", "sum"),
         discounted_loss=("discounted_loss", "sum"),
     )
@@ -248,8 +244,6 @@ def calculate_lifetime_ecl(
 def plot_monthly_loss_path(monthly: pd.DataFrame, path: str | Path) -> None:
     """Write monthly and cumulative discounted loss to a compact PNG."""
 
-    output = Path(path)
-    output.parent.mkdir(parents=True, exist_ok=True)
     figure, axis = plt.subplots(figsize=(10, 5))
     axis.bar(monthly["month"], monthly["discounted_loss"], label="Monthly ECL")
     axis.plot(
@@ -264,7 +258,17 @@ def plot_monthly_loss_path(monthly: pd.DataFrame, path: str | Path) -> None:
     axis.set_title("Lifetime expected credit loss path")
     axis.legend()
     figure.tight_layout()
-    figure.savefig(output, dpi=160)
+    destination = str(path)
+    if "://" in destination:
+        buffer = BytesIO()
+        figure.savefig(buffer, format="png", dpi=160)
+        buffer.seek(0)
+        with fsspec.open(destination, "wb") as stream:
+            stream.write(buffer.getvalue())
+    else:
+        output = Path(destination)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(output, dpi=160)
     plt.close(figure)
 
 
@@ -290,29 +294,23 @@ def build_ecl_segments(
     history = panel[pd.to_datetime(panel["as_of_month"]) <= cutoff].copy()
     if history.empty:
         raise ValueError("No portfolio observations exist at the CECL reporting date")
-    latest = history.sort_values(["loan_id", "as_of_month"]).groupby(
-        "loan_id", as_index=False
-    ).tail(1)
+    latest = (
+        history.sort_values(["loan_id", "as_of_month"]).groupby("loan_id", as_index=False).tail(1)
+    )
     latest = latest[~latest["exit_reason"].isin(("ChargeOff", "Prepaid", "Repurchased"))]
     latest["exposure"] = exposure_balance(latest["upb_eom"], latest["upb_bom"])
     latest = latest[latest["exposure"] > 0.0].copy()
     source = latest.merge(
-        acquisition[
-            ["loan_id", "original_term", "orig_interest_rate", "origination_month"]
-        ],
+        acquisition[["loan_id", "original_term", "orig_interest_rate", "origination_month"]],
         on="loan_id",
         how="left",
         validate="one_to_one",
     )
     if source[["original_term", "orig_interest_rate"]].isna().any().any():
         raise ValueError("Portfolio snapshot is missing acquisition terms")
-    source["score_band"] = assign_score_band(
-        source["orig_score"], config.model.score_bands
-    )
+    source["score_band"] = assign_score_band(source["orig_score"], config.model.score_bands)
     source["vintage_year"] = source["vintage"].astype(str).str[:4]
-    source["remaining_term"] = (
-        source["original_term"] - source["months_on_book"]
-    ).clip(lower=1)
+    source["remaining_term"] = (source["original_term"] - source["months_on_book"]).clip(lower=1)
     segments: list[ECLSegment] = []
     for (score_band, vintage), frame in source.groupby(
         ["score_band", "vintage_year"], observed=True, sort=True
@@ -370,17 +368,32 @@ def _transition_counts(panel: pd.DataFrame, config: EngineConfig) -> pd.DataFram
         "score_band",
         "as_of_month",
     ]
-    return frame.groupby(keys, observed=True, as_index=False).size().rename(
-        columns={"size": "transition_count"}
+    return (
+        frame.groupby(keys, observed=True, as_index=False)
+        .size()
+        .rename(columns={"size": "transition_count"})
     )
+
+
+def _load_transition_counts(config: EngineConfig, panel: pd.DataFrame) -> pd.DataFrame:
+    """Load M5's compact cells, with a diagnostic fallback for old local runs."""
+
+    curated = config.paths.curated.rstrip("/\\")
+    path = f"{curated}/transition_counts"
+    if "://" in path or Path(path).exists():
+        return pd.read_parquet(path)
+    LOGGER.warning(
+        "M5 transition counts were not found at %s; rebuilding them from the local "
+        "panel for backward compatibility. Run the M5 Spark stage to persist the "
+        "small aggregate before production M6 execution.",
+        path,
+    )
+    return _transition_counts(panel, config)
 
 
 def _chain_ladder_reconciliation(config: EngineConfig, result: ECLResult) -> pd.DataFrame:
     ultimate = pd.read_csv(config.paths.vintage_table)
-    loss = (
-        ultimate["original_balance"]
-        * ultimate["ultimate_rate_original_balance_chain_ladder"]
-    )
+    loss = ultimate["original_balance"] * ultimate["ultimate_rate_original_balance_chain_ladder"]
     chain_dollars = float(loss.sum())
     chain_balance = float(ultimate["original_balance"].sum())
     chain_rate = chain_dollars / chain_balance if chain_balance else 0.0
@@ -418,7 +431,7 @@ def run_cecl(config: EngineConfig) -> Milestone6Report:
     )
     macro = pd.read_csv(config.paths.macro, parse_dates=["as_of_month"])
     macro_lagged = _macro_with_lags(macro, config.model.macro_lags)
-    counts = _transition_counts(panel, config)
+    counts = _load_transition_counts(config, panel)
     transition_model = fit_conditional_models(counts, macro_lagged, config)
     panel["score_band"] = assign_score_band(panel["orig_score"], config.model.score_bands)
     lgd_model = fit_lgd_model(

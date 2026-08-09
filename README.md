@@ -36,6 +36,7 @@ python -m src.cli ingest --env local --sample-fraction 0.10
 python -m src.cli panel --env local
 python -m src.cli vintage --env local
 python -m src.cli transitions --env local
+python -m src.cli ecl --env local
 pytest
 ```
 
@@ -111,6 +112,10 @@ M3, and M5 business transformations still run locally and on YARN.
 See [`docs/running_on_aws.md`](docs/running_on_aws.md) for the corrected runbook
 and [`docs/assumptions_log.md`](docs/assumptions_log.md) for the findings and
 design rationale.
+
+The Milestone 6 allowance result, PD/EAD/LGD decompositions, LGD validation,
+monthly loss path, and chain-ladder reconciliation are summarized in
+[`docs/m6_results.md`](docs/m6_results.md).
 
 Local Spark ingestion requires Java 17. On native Windows, Hadoop's local-file
 adapter also requires matching `winutils.exe` and `hadoop.dll` binaries available

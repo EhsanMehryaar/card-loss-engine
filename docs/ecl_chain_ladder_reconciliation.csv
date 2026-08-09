@@ -1,0 +1,3 @@
+measure,loss_dollars,denominator_dollars,loss_rate,scope
+M6 lifetime ECL,82808294.06337309,4950178750.33,0.016728344215419036,Discounted future expected loss on exposure outstanding at cutoff
+M4 chain-ladder ultimate,93659875.8853229,10947600000.0,0.00855528845457661,Undiscounted projected ultimate loss on original cohort balances

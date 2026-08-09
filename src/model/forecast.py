@@ -14,9 +14,7 @@ class MatrixBuilder(Protocol):
 
     states: tuple[str, ...]
 
-    def build_matrix(
-        self, mob: int, score_band: str, macro: dict[str, float]
-    ) -> np.ndarray: ...
+    def build_matrix(self, mob: int, score_band: str, macro: dict[str, float]) -> np.ndarray: ...
 
 
 @dataclass(frozen=True)
@@ -90,9 +88,7 @@ def forecast_segment(
             for column, value in macro_row.items()
             if column != "as_of_month" and pd.notna(value)
         }
-        matrix = np.asarray(
-            model.build_matrix(matrix_mob, segment.score_band, macro), dtype=float
-        )
+        matrix = np.asarray(model.build_matrix(matrix_mob, segment.score_band, macro), dtype=float)
         if matrix.shape != (len(states), len(states)):
             raise ValueError("Transition matrix shape does not match model states")
         vector = vector @ matrix

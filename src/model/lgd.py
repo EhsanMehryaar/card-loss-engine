@@ -68,9 +68,9 @@ def _default_observations(frame: pd.DataFrame) -> pd.DataFrame:
         defaults = defaults[defaults["exit_reason"].eq("ChargeOff")]
     defaults = defaults.dropna(subset=list(required))
     defaults = defaults[defaults["upb_bom"] > 0.0].copy()
-    net_recovery = (
-        defaults["net_sales_proceeds"] - defaults["foreclosure_costs"]
-    ) / defaults["upb_bom"]
+    net_recovery = (defaults["net_sales_proceeds"] - defaults["foreclosure_costs"]) / defaults[
+        "upb_bom"
+    ]
     defaults["realized_recovery"] = net_recovery.clip(0.0, 1.0)
     defaults["realized_lgd"] = 1.0 - defaults["realized_recovery"]
     return defaults
@@ -94,10 +94,7 @@ def fit_lgd_model(
     fits: dict[str, LGDSegmentFit] = {}
     for score_band in bands:
         segment = defaults[defaults["score_band"].eq(score_band)]
-        sufficient = (
-            len(segment) >= min_observations
-            and segment["hpi_change_yoy"].nunique() >= 2
-        )
+        sufficient = len(segment) >= min_observations and segment["hpi_change_yoy"].nunique() >= 2
         if not sufficient:
             LOGGER.warning(
                 "Using fallback LGD %.2f for score band %s: %d usable defaults",
@@ -132,9 +129,7 @@ def fit_lgd_model(
     return LGDModel(fits, float(fallback_lgd))
 
 
-def lgd_validation_by_era(
-    observations: pd.DataFrame, model: LGDModel
-) -> pd.DataFrame:
+def lgd_validation_by_era(observations: pd.DataFrame, model: LGDModel) -> pd.DataFrame:
     """Compare exposure-weighted realized and modeled LGD by origination era."""
 
     defaults = _default_observations(observations)
@@ -146,9 +141,7 @@ def lgd_validation_by_era(
     )
     defaults["modeled_lgd"] = [
         model.predict_lgd(str(score_band), float(hpi))
-        for score_band, hpi in zip(
-            defaults["score_band"], defaults["hpi_change_yoy"], strict=True
-        )
+        for score_band, hpi in zip(defaults["score_band"], defaults["hpi_change_yoy"], strict=True)
     ]
     records: list[dict[str, object]] = []
     for era in ("pre-2008", "2008-2010", "2011+"):
@@ -166,14 +159,10 @@ def lgd_validation_by_era(
                     else np.nan
                 ),
                 "realized_lgd": (
-                    float(np.average(frame["realized_lgd"], weights=exposure))
-                    if total
-                    else np.nan
+                    float(np.average(frame["realized_lgd"], weights=exposure)) if total else np.nan
                 ),
                 "modeled_lgd": (
-                    float(np.average(frame["modeled_lgd"], weights=exposure))
-                    if total
-                    else np.nan
+                    float(np.average(frame["modeled_lgd"], weights=exposure)) if total else np.nan
                 ),
             }
         )

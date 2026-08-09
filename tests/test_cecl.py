@@ -1,4 +1,5 @@
 """Known-answer CECL tests are added in Milestone 6."""
+
 from dataclasses import dataclass
 
 import numpy as np
@@ -29,20 +30,14 @@ class FixedMatrixModel:
 
 def _segments() -> list[ECLSegment]:
     return [
-        ECLSegment(
-            f"L{index}", "FICO_700-739", "2018", balance, 0, {"Current": 1.0}, 0.0, 4
-        )
+        ECLSegment(f"L{index}", "FICO_700-739", "2018", balance, 0, {"Current": 1.0}, 0.0, 4)
         for index, balance in enumerate((100.0, 200.0, 300.0), start=1)
     ]
 
 
 def _lgd(value: float) -> LGDModel:
     return LGDModel(
-        {
-            "FICO_700-739": LGDSegmentFit(
-                "FICO_700-739", 100, 1.0 - value, 0.0, False
-            )
-        },
+        {"FICO_700-739": LGDSegmentFit("FICO_700-739", 100, 1.0 - value, 0.0, False)},
         0.45,
     )
 
@@ -60,6 +55,11 @@ def test_hand_computed_three_loan_lifetime_ecl() -> None:
 
     # PD = [0.1, 0.07, 0.049, 0.0343], EAD = [600, 450, 300, 150], LGD = 0.5.
     assert result.lifetime_ecl == pytest.approx(55.6725, abs=1e-12)
+    assert result.by_score_band.loc[0, "expected_default_exposure"] == pytest.approx(
+        111.345, abs=1e-12
+    )
+    assert result.by_score_band.loc[0, "lgd_at_default"] == pytest.approx(0.50)
+    assert result.by_vintage.loc[0, "lifetime_pd"] == pytest.approx(0.2533)
 
 
 def test_higher_prepayment_lowers_ecl() -> None:

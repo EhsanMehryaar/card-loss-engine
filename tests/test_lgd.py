@@ -28,9 +28,7 @@ def test_lgd_is_score_segmented_and_macro_conditioned() -> None:
     observations = _observations()
     model = fit_lgd_model(observations, fallback_lgd=0.45, min_observations=20)
 
-    assert model.predict_lgd("FICO_660-699", -0.10) > model.predict_lgd(
-        "FICO_660-699", 0.10
-    )
+    assert model.predict_lgd("FICO_660-699", -0.10) > model.predict_lgd("FICO_660-699", 0.10)
     validation = lgd_validation_by_era(observations, model)
     assert (validation["realized_lgd"] - validation["modeled_lgd"]).abs().max() < 1e-12
 

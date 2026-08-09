@@ -2,19 +2,17 @@ from dataclasses import replace
 
 from pyspark.sql import functions as F
 
-from src.config import PathConfig
 from src.ingest.raw_to_parquet import run_ingestion
 from src.ingest.synthetic import generate_portfolio, write_portfolio
 from src.panel.build_panel import run_panel
 
 
-def test_spark_panel_reconciles_exactly_to_m1_diagnostic(
-    spark, quality_config, tmp_path
-) -> None:
+def test_spark_panel_reconciles_exactly_to_m1_diagnostic(spark, quality_config, tmp_path) -> None:
     root = tmp_path / "reconciliation"
     config = replace(
         quality_config,
-        paths=PathConfig(
+        paths=replace(
+            quality_config.paths,
             raw_acquisition=(root / "raw" / "acquisition").as_posix(),
             raw_performance=(root / "raw" / "performance").as_posix(),
             curated=(root / "curated").as_posix(),
@@ -22,18 +20,12 @@ def test_spark_panel_reconciles_exactly_to_m1_diagnostic(
             output=(root / "output").as_posix(),
             vintage_plot=(root / "docs" / "vintage_curves.png").as_posix(),
             vintage_table=(root / "docs" / "vintage_ultimate_rates.csv").as_posix(),
-            vintage_annual_table=(
-                root / "docs" / "vintage_ultimate_rates_annual.csv"
-            ).as_posix(),
-            vintage_backtest_table=(
-                root / "docs" / "vintage_projection_accuracy.csv"
-            ).as_posix(),
+            vintage_annual_table=(root / "docs" / "vintage_ultimate_rates_annual.csv").as_posix(),
+            vintage_backtest_table=(root / "docs" / "vintage_projection_accuracy.csv").as_posix(),
             transition_empirical_table=(root / "docs" / "empirical.csv").as_posix(),
             transition_coefficients=(root / "docs" / "coefficients.csv").as_posix(),
             transition_ground_truth=(root / "docs" / "ground_truth.csv").as_posix(),
-            transition_interpretations=(
-                root / "docs" / "interpretations.csv"
-            ).as_posix(),
+            transition_interpretations=(root / "docs" / "interpretations.csv").as_posix(),
         ),
         sample_fraction=1.0,
         synthetic=replace(

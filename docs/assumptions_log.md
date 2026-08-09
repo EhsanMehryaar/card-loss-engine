@@ -209,3 +209,34 @@ This file is cumulative and must be appended to at every subsequent milestone.
   partition before its unpartitioned windows. The same design on the
   20.3-million-row account-month panel would create an unacceptable single-node
   bottleneck; panel windows must remain partitioned by `loan_id`.
+
+## Milestone 6
+
+- The allowance reporting date is 2018-12-01. The opening portfolio contains
+  positive exposure not already absorbed in ChargeOff, Prepaid, or Repurchased;
+  censored rows with null `upb_eom` use their observed `upb_bom` instead of
+  propagating null exposure.
+- Forecast cells are score band by annual origination vintage. State mixes,
+  interest rates, MOB, remaining terms, and balances are aggregated before the
+  forward calculation. Portfolio probabilities are weighted by opening balance.
+- The production transition fit consumes M5's persisted
+  `curated/transition_counts` table. The CLI retains a logged compatibility
+  fallback that reconstructs those cells only for older local runs created
+  before M5 persisted the aggregate.
+- ChargeOff, Prepaid, and Repurchased remain distinct absorbing states. Only
+  incremental ChargeOff mass is PD for loss measurement; prepayment and
+  repurchase are competing exits and cannot later default.
+- Recovery is an exposure-weighted linear function of default-month
+  `hpi_change_yoy`, fitted separately by score band. The 45% configured fallback
+  LGD applies only to bands with fewer than 20 usable defaults or insufficient
+  HPI variation, and its use is logged. No band required fallback in the full
+  local portfolio.
+- The available forward macro path supplies 119 forecast months. MOB inputs
+  beyond the fitted M5 boundary are held at configured MOB 119 while calendar
+  macro variables continue to change. EAD reaches zero at contractual maturity.
+- The 5% configured annual discount rate is applied using fractional years,
+  `(1 + r) ** (month / 12)`. The first projected monthly loss is therefore
+  discounted by one month.
+- M6 and M4 are intentionally not equal. M6 measures discounted future loss on
+  balances outstanding at the cutoff; M4 chain-ladder ultimate includes
+  historical and projected cohort loss on original balances and is undiscounted.
