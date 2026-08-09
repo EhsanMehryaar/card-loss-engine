@@ -1,0 +1,5 @@
+portfolio_scope,measure,fit_provenance,fit_end,projected_or_realized_loss,error_dollars,absolute_error_dollars,error_pct_of_realized,leakage_gap_dollars,leakage_gap_percentage_points
+"Local synthetic portfolio (25,000 loans)",Realized post-cutoff net loss,realized_ground_truth,not_applicable,71833220.68,,,,6249393.101471454,8.699864828991895
+"Local synthetic portfolio (25,000 loans)",M6 macro-conditioned roll-rate,cutoff_clean_out_of_sample,2018-12-01,78668330.36399099,6835109.683990985,6835109.683990985,0.09515248821210148,6249393.101471454,8.699864828991895
+"Local synthetic portfolio (25,000 loans)",M6 macro-conditioned roll-rate,production_full_history_leaked_for_backtest,full_available_history,72418937.26251954,585716.5825195312,585716.5825195312,0.008153839922182523,6249393.101471454,8.699864828991895
+"Local synthetic portfolio (25,000 loans)",M4 chain-ladder remaining loss,pre_cutoff_chain_ladder,2018-12-01,14407524.125323415,-57425696.55467659,57425696.55467659,-0.7994309041285296,6249393.101471454,8.699864828991895

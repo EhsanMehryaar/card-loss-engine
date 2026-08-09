@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from io import BytesIO
+from itertools import permutations
 from pathlib import Path
 
 import fsspec
@@ -21,10 +22,17 @@ import numpy as np
 import pandas as pd
 
 from src.config import EngineConfig
-from src.model.forecast import ForecastResult, ForecastSegment, MatrixBuilder, forecast_segments
+from src.model.forecast import (
+    CachedMatrixBuilder,
+    ForecastResult,
+    ForecastSegment,
+    MatrixBuilder,
+    forecast_segments,
+)
 from src.model.lgd import LGDModel, fit_lgd_model, lgd_validation_by_era
 
 LOGGER = logging.getLogger(__name__)
+PORTFOLIO_LABEL = "Local synthetic portfolio (25,000 loans)"
 
 
 @dataclass(frozen=True)
@@ -83,6 +91,13 @@ class Milestone6Report:
     lgd_validation_path: str
     lgd_coefficients_path: str
     reconciliation_path: str
+    ground_truth_validation_path: str
+    fit_comparison_path: str
+    cutoff_clean_undiscounted_loss: float
+    production_undiscounted_loss: float
+    realized_post_cutoff_loss: float
+    leakage_gap_dollars: float
+    leakage_gap_percentage_points: float
 
 
 def exposure_balance(upb_eom: pd.Series, upb_bom: pd.Series) -> pd.Series:
@@ -241,7 +256,12 @@ def calculate_lifetime_ecl(
     )
 
 
-def plot_monthly_loss_path(monthly: pd.DataFrame, path: str | Path) -> None:
+def plot_monthly_loss_path(
+    monthly: pd.DataFrame,
+    path: str | Path,
+    *,
+    fit_provenance: str = "unspecified",
+) -> None:
     """Write monthly and cumulative discounted loss to a compact PNG."""
 
     figure, axis = plt.subplots(figsize=(10, 5))
@@ -255,7 +275,9 @@ def plot_monthly_loss_path(monthly: pd.DataFrame, path: str | Path) -> None:
     )
     axis.set_xlabel("Forecast month")
     axis.set_ylabel("Discounted expected loss ($)")
-    axis.set_title("Lifetime expected credit loss path")
+    axis.set_title(
+        f"Lifetime expected credit loss path\n{PORTFOLIO_LABEL} — {fit_provenance}"
+    )
     axis.legend()
     figure.tight_layout()
     destination = str(path)
@@ -338,7 +360,31 @@ def build_ecl_segments(
     return segments
 
 
+def active_cutoff_panel(panel: pd.DataFrame, cutoff: str | pd.Timestamp) -> pd.DataFrame:
+    """Keep histories only for loans observed economically active at cutoff."""
+
+    cutoff_month = pd.Timestamp(cutoff)
+    snapshot = panel[pd.to_datetime(panel["as_of_month"]).eq(cutoff_month)]
+    active_ids = snapshot.loc[
+        ~snapshot["exit_reason"].isin(("ChargeOff", "Prepaid", "Repurchased", "Censored")),
+        "loan_id",
+    ]
+    return panel[panel["loan_id"].isin(active_ids)].copy()
+
+
+def _with_fit_provenance(
+    frame: pd.DataFrame, fit_provenance: str, fit_end: str | None
+) -> pd.DataFrame:
+    labelled = frame.copy()
+    labelled.insert(0, "fit_end", fit_end or "full_available_history")
+    labelled.insert(0, "fit_provenance", fit_provenance)
+    return labelled
+
+
 def _write_csv(frame: pd.DataFrame, path: str) -> None:
+    frame = frame.copy()
+    if "portfolio_scope" not in frame:
+        frame.insert(0, "portfolio_scope", PORTFOLIO_LABEL)
     if "://" in path:
         with fsspec.open(path, "wt") as stream:
             frame.to_csv(stream, index=False)
@@ -391,36 +437,303 @@ def _load_transition_counts(config: EngineConfig, panel: pd.DataFrame) -> pd.Dat
     return _transition_counts(panel, config)
 
 
-def _chain_ladder_reconciliation(config: EngineConfig, result: ECLResult) -> pd.DataFrame:
-    ultimate = pd.read_csv(config.paths.vintage_table)
-    loss = ultimate["original_balance"] * ultimate["ultimate_rate_original_balance_chain_ladder"]
-    chain_dollars = float(loss.sum())
-    chain_balance = float(ultimate["original_balance"].sum())
-    chain_rate = chain_dollars / chain_balance if chain_balance else 0.0
+def _shapley_loss_attribution(
+    balance: float,
+    actual: dict[str, float],
+    projected: dict[str, float],
+) -> dict[str, float]:
+    """Attribute a multiplicative loss difference without imposing factor order."""
+
+    factors = ("pd", "ead", "lgd")
+
+    def loss(values: dict[str, float]) -> float:
+        return balance * values["pd"] * values["ead"] * values["lgd"]
+
+    contributions = {factor: 0.0 for factor in factors}
+    orders = tuple(permutations(factors))
+    for order in orders:
+        values = dict(actual)
+        for factor in order:
+            before = loss(values)
+            values[factor] = projected[factor]
+            contributions[factor] += loss(values) - before
+    return {factor: value / len(orders) for factor, value in contributions.items()}
+
+
+def validate_forecast_against_ground_truth(
+    panel: pd.DataFrame,
+    monthly_forecast: pd.DataFrame,
+    *,
+    cutoff: str | pd.Timestamp,
+    outstanding_balance: float,
+) -> pd.DataFrame:
+    """Compare undiscounted M6 loss with known post-cutoff loan outcomes."""
+
+    required = {
+        "loan_id",
+        "as_of_month",
+        "upb_bom",
+        "upb_eom",
+        "net_sales_proceeds",
+        "foreclosure_costs",
+        "exit_reason",
+    }
+    missing = required - set(panel.columns)
+    if missing:
+        raise ValueError(f"Ground-truth panel is missing columns: {sorted(missing)}")
+    cutoff_month = pd.Timestamp(cutoff)
+    forecast = monthly_forecast.copy()
+    forecast["as_of_month"] = pd.to_datetime(forecast["as_of_month"])
+    forecast_end = forecast["as_of_month"].max()
+    history = panel.copy()
+    history["as_of_month"] = pd.to_datetime(history["as_of_month"])
+    snapshot = (
+        history[history["as_of_month"] <= cutoff_month]
+        .sort_values(["loan_id", "as_of_month"])
+        .groupby("loan_id", as_index=False)
+        .tail(1)
+    )
+    snapshot = snapshot[
+        ~snapshot["exit_reason"].isin(("ChargeOff", "Prepaid", "Repurchased"))
+    ].copy()
+    snapshot["cutoff_exposure"] = exposure_balance(snapshot["upb_eom"], snapshot["upb_bom"])
+    snapshot = snapshot[snapshot["cutoff_exposure"] > 0.0]
+    snapshot_balance = float(snapshot["cutoff_exposure"].sum())
+    if not np.isclose(snapshot_balance, outstanding_balance, atol=0.01, rtol=0.0):
+        raise ValueError(
+            f"Validation snapshot balance {snapshot_balance} does not reconcile to "
+            f"forecast balance {outstanding_balance}"
+        )
+
+    defaults = history[
+        (history["as_of_month"] > cutoff_month)
+        & (history["as_of_month"] <= forecast_end)
+        & history["exit_reason"].eq("ChargeOff")
+    ].copy()
+    defaults = defaults.merge(
+        snapshot[["loan_id", "cutoff_exposure"]],
+        on="loan_id",
+        how="left",
+        validate="one_to_one",
+    )
+    if defaults["cutoff_exposure"].isna().any():
+        raise ValueError("A realized post-cutoff default is absent from the forecast snapshot")
+    defaults["realized_net_loss"] = (
+        defaults["upb_bom"] - (defaults["net_sales_proceeds"] - defaults["foreclosure_costs"])
+    ).clip(lower=0.0)
+    defaults["year"] = defaults["as_of_month"].dt.year
+    forecast["year"] = forecast["as_of_month"].dt.year
+    projected = forecast.groupby("year", as_index=False).agg(
+        projected_pd_dollars=("marginal_pd_dollars", "sum"),
+        projected_default_exposure=("expected_default_exposure", "sum"),
+        projected_net_loss=("undiscounted_loss", "sum"),
+    )
+    realized = defaults.groupby("year", as_index=False).agg(
+        realized_defaults=("loan_id", "size"),
+        realized_pd_dollars=("cutoff_exposure", "sum"),
+        realized_default_exposure=("upb_bom", "sum"),
+        realized_net_loss=("realized_net_loss", "sum"),
+    )
+    annual = projected.merge(realized, on="year", how="outer").fillna(0.0)
+
+    def record(period: str, frame: pd.DataFrame) -> dict[str, object]:
+        projected_pd_dollars = float(frame["projected_pd_dollars"].sum())
+        realized_pd_dollars = float(frame["realized_pd_dollars"].sum())
+        projected_ead = float(frame["projected_default_exposure"].sum())
+        realized_ead = float(frame["realized_default_exposure"].sum())
+        projected_loss = float(frame["projected_net_loss"].sum())
+        realized_loss = float(frame["realized_net_loss"].sum())
+        projected_factors = {
+            "pd": projected_pd_dollars / outstanding_balance,
+            "ead": projected_ead / projected_pd_dollars if projected_pd_dollars else 0.0,
+            "lgd": projected_loss / projected_ead if projected_ead else 0.0,
+        }
+        actual_factors = {
+            "pd": realized_pd_dollars / outstanding_balance,
+            "ead": realized_ead / realized_pd_dollars if realized_pd_dollars else 0.0,
+            "lgd": realized_loss / realized_ead if realized_ead else 0.0,
+        }
+        attribution = _shapley_loss_attribution(
+            outstanding_balance, actual_factors, projected_factors
+        )
+        error = projected_loss - realized_loss
+        return {
+            "period": period,
+            "realized_defaults": int(frame["realized_defaults"].sum()),
+            "projected_undiscounted_loss": projected_loss,
+            "realized_undiscounted_net_loss": realized_loss,
+            "error_dollars": error,
+            "error_pct_of_realized": error / realized_loss if realized_loss else np.nan,
+            "projected_pd": projected_factors["pd"],
+            "realized_pd": actual_factors["pd"],
+            "projected_ead_factor": projected_factors["ead"],
+            "realized_ead_factor": actual_factors["ead"],
+            "projected_lgd": projected_factors["lgd"],
+            "realized_lgd": actual_factors["lgd"],
+            "pd_error_contribution": attribution["pd"],
+            "ead_error_contribution": attribution["ead"],
+            "lgd_error_contribution": attribution["lgd"],
+        }
+
+    records = [record(str(int(row["year"])), pd.DataFrame([row])) for _, row in annual.iterrows()]
+    records.append(record("Total", annual))
+    result = pd.DataFrame.from_records(records)
+    attributed = result[
+        [
+            "pd_error_contribution",
+            "ead_error_contribution",
+            "lgd_error_contribution",
+        ]
+    ].sum(axis=1)
+    if not np.allclose(attributed, result["error_dollars"], atol=0.01, rtol=0.0):
+        raise ValueError("PD/EAD/LGD error attribution does not reconcile")
+    return result
+
+
+def build_reconciliation_bridge(
+    *,
+    m4_ultimate: float,
+    realized_before_cutoff: float,
+    m4_original_balance: float,
+    m6_undiscounted: float,
+    m6_discounted: float,
+    m6_outstanding_balance: float,
+) -> pd.DataFrame:
+    """Build an additive bridge from M4 ultimate loss to M6 lifetime ECL."""
+
+    m4_future = m4_ultimate - realized_before_cutoff
+    surviving_exposure_adjustment = 0.0
+    roll_rate_model_uplift = m6_undiscounted - m4_future
+    discounting_adjustment = m6_discounted - m6_undiscounted
     return pd.DataFrame.from_records(
         [
             {
-                "measure": "M6 lifetime ECL",
-                "loss_dollars": result.lifetime_ecl,
-                "denominator_dollars": result.outstanding_balance,
-                "loss_rate": result.ecl_rate,
-                "scope": "Discounted future expected loss on exposure outstanding at cutoff",
+                "step": "M4 chain-ladder ultimate",
+                "adjustment_dollars": m4_ultimate,
+                "subtotal_dollars": m4_ultimate,
+                "loss_rate": m4_ultimate / m4_original_balance,
+                "basis": "Undiscounted realized plus projected ultimate on original cohorts",
             },
             {
-                "measure": "M4 chain-ladder ultimate",
-                "loss_dollars": chain_dollars,
-                "denominator_dollars": chain_balance,
-                "loss_rate": chain_rate,
-                "scope": "Undiscounted projected ultimate loss on original cohort balances",
+                "step": "Less: realized losses incurred through cutoff",
+                "adjustment_dollars": -realized_before_cutoff,
+                "subtotal_dollars": m4_future,
+                "loss_rate": np.nan,
+                "basis": "Observed cumulative net loss through 2018-12-01",
+            },
+            {
+                "step": "Restriction to surviving exposure",
+                "adjustment_dollars": surviving_exposure_adjustment,
+                "subtotal_dollars": m4_future,
+                "loss_rate": np.nan,
+                "basis": (
+                    "No separate adjustment: after incurred loss is removed, exited loans have "
+                    "zero future marginal PD; another subtraction would double-count exits"
+                ),
+            },
+            {
+                "step": "Macro-conditioned roll-rate model versus M4 remaining loss",
+                "adjustment_dollars": roll_rate_model_uplift,
+                "subtotal_dollars": m6_undiscounted,
+                "loss_rate": np.nan,
+                "basis": (
+                    f"M6 undiscounted is {m6_undiscounted / m4_future:.2f}x M4 remaining; "
+                    "M4 backtest underprojects 2011+ cohorts by 125.61 bps ME / 63.51% MAPE"
+                ),
+            },
+            {
+                "step": "Discounting at 5% annual effective rate",
+                "adjustment_dollars": discounting_adjustment,
+                "subtotal_dollars": m6_discounted,
+                "loss_rate": m6_discounted / m6_outstanding_balance,
+                "basis": "Difference between undiscounted and discounted M6 monthly loss",
             },
         ]
     )
 
 
+def _chain_ladder_reconciliation(config: EngineConfig, result: ECLResult) -> pd.DataFrame:
+    ultimate = pd.read_csv(config.paths.vintage_table)
+    original_balance = float(ultimate["original_balance"].sum())
+    m4_ultimate = float(
+        (
+            ultimate["original_balance"] * ultimate["ultimate_rate_original_balance_chain_ladder"]
+        ).sum()
+    )
+    realized = float(
+        (ultimate["original_balance"] * ultimate["observed_rate_original_balance"]).sum()
+    )
+    return build_reconciliation_bridge(
+        m4_ultimate=m4_ultimate,
+        realized_before_cutoff=realized,
+        m4_original_balance=original_balance,
+        m6_undiscounted=float(result.monthly["undiscounted_loss"].sum()),
+        m6_discounted=result.lifetime_ecl,
+        m6_outstanding_balance=result.outstanding_balance,
+    )
+
+
+def build_fit_comparison(
+    *,
+    cutoff_result: ECLResult,
+    production_result: ECLResult,
+    realized_loss: float,
+    chain_ladder_projection: float,
+    cutoff_fit_end: str,
+    production_fit_end: str | None,
+) -> pd.DataFrame:
+    """Build the four-way OOS comparison and quantify leakage advantage."""
+
+    cutoff_loss = float(cutoff_result.monthly["undiscounted_loss"].sum())
+    production_loss = float(production_result.monthly["undiscounted_loss"].sum())
+    cutoff_error = cutoff_loss - realized_loss
+    production_error = production_loss - realized_loss
+    leakage_gap = abs(cutoff_error) - abs(production_error)
+    leakage_gap_pp = 100.0 * (abs(cutoff_error) - abs(production_error)) / realized_loss
+    rows = [
+        {
+            "measure": "Realized post-cutoff net loss",
+            "fit_provenance": "realized_ground_truth",
+            "fit_end": "not_applicable",
+            "projected_or_realized_loss": realized_loss,
+        },
+        {
+            "measure": "M6 macro-conditioned roll-rate",
+            "fit_provenance": "cutoff_clean_out_of_sample",
+            "fit_end": cutoff_fit_end,
+            "projected_or_realized_loss": cutoff_loss,
+        },
+        {
+            "measure": "M6 macro-conditioned roll-rate",
+            "fit_provenance": "production_full_history_leaked_for_backtest",
+            "fit_end": production_fit_end or "full_available_history",
+            "projected_or_realized_loss": production_loss,
+        },
+        {
+            "measure": "M4 chain-ladder remaining loss",
+            "fit_provenance": "pre_cutoff_chain_ladder",
+            "fit_end": cutoff_fit_end,
+            "projected_or_realized_loss": chain_ladder_projection,
+        },
+    ]
+    comparison = pd.DataFrame.from_records(rows)
+    comparison["error_dollars"] = comparison["projected_or_realized_loss"] - realized_loss
+    comparison["absolute_error_dollars"] = comparison["error_dollars"].abs()
+    comparison["error_pct_of_realized"] = comparison["error_dollars"] / realized_loss
+    comparison.loc[comparison["fit_provenance"].eq("realized_ground_truth"), [
+        "error_dollars",
+        "absolute_error_dollars",
+        "error_pct_of_realized",
+    ]] = np.nan
+    comparison["leakage_gap_dollars"] = leakage_gap
+    comparison["leakage_gap_percentage_points"] = leakage_gap_pp
+    return comparison
+
+
 def run_cecl(config: EngineConfig) -> Milestone6Report:
     """Run M6 from local pandas artifacts produced by the prior milestones."""
 
-    from src.model.conditional import fit_conditional_models
+    from src.model.conditional import fit_conditional_models, transition_fit_sample
 
     output_root = Path(config.paths.output)
     panel = pd.read_parquet(output_root / "synthetic_panel.parquet")
@@ -432,56 +745,142 @@ def run_cecl(config: EngineConfig) -> Milestone6Report:
     macro = pd.read_csv(config.paths.macro, parse_dates=["as_of_month"])
     macro_lagged = _macro_with_lags(macro, config.model.macro_lags)
     counts = _load_transition_counts(config, panel)
-    transition_model = fit_conditional_models(counts, macro_lagged, config)
     panel["score_band"] = assign_score_band(panel["orig_score"], config.model.score_bands)
-    lgd_model = fit_lgd_model(
-        panel,
-        fallback_lgd=config.model.fallback_lgd,
-        score_bands=transition_model.score_bands,
-    )
     cutoff = pd.Timestamp(config.model.vintage_analysis_as_of)
     macro_path = macro_lagged[macro_lagged["as_of_month"] > cutoff].head(
         config.synthetic.max_observation_months
     )
-    segments = build_ecl_segments(panel, acquisition, config, cutoff)
-    result = calculate_lifetime_ecl(
-        transition_model,
-        lgd_model,
-        segments,
-        macro_path,
-        annual_discount_rate=config.model.discount_rate_annual,
-        max_mob=config.model.vintage_maturity_mob,
+    active_panel = active_cutoff_panel(panel, cutoff)
+    segments = build_ecl_segments(active_panel, acquisition, config, cutoff)
+    fit_specs = {
+        "cutoff_clean_out_of_sample": config.model.backtest_fit_end,
+        "production_full_history_leaked_for_backtest": config.model.production_fit_end,
+    }
+    results: dict[str, ECLResult] = {}
+    validations: list[pd.DataFrame] = []
+    coefficients: list[pd.DataFrame] = []
+    ground_truth_frames: list[pd.DataFrame] = []
+    for provenance, fit_end in fit_specs.items():
+        fit_counts = transition_fit_sample(counts, fit_end)
+        fitted_transition_model = fit_conditional_models(fit_counts, macro_lagged, config)
+        transition_model = CachedMatrixBuilder(fitted_transition_model)
+        lgd_sample = panel[
+            pd.to_datetime(panel["as_of_month"]) <= pd.Timestamp(fit_end)
+        ] if fit_end is not None else panel
+        lgd_model = fit_lgd_model(
+            lgd_sample,
+            fallback_lgd=config.model.fallback_lgd,
+            score_bands=fitted_transition_model.score_bands,
+        )
+        result = calculate_lifetime_ecl(
+            transition_model,
+            lgd_model,
+            segments,
+            macro_path,
+            annual_discount_rate=config.model.discount_rate_annual,
+            max_mob=config.model.vintage_maturity_mob,
+        )
+        results[provenance] = result
+        validations.append(
+            _with_fit_provenance(lgd_validation_by_era(lgd_sample, lgd_model), provenance, fit_end)
+        )
+        coefficients.append(
+            _with_fit_provenance(lgd_model.coefficient_table(), provenance, fit_end)
+        )
+        ground_truth_frames.append(
+            _with_fit_provenance(
+                validate_forecast_against_ground_truth(
+                    active_panel,
+                    result.monthly,
+                    cutoff=cutoff,
+                    outstanding_balance=result.outstanding_balance,
+                ),
+                provenance,
+                fit_end,
+            )
+        )
+    result = results["cutoff_clean_out_of_sample"]
+    production_result = results["production_full_history_leaked_for_backtest"]
+    ground_truth = pd.concat(ground_truth_frames, ignore_index=True)
+    realized_loss = float(
+        ground_truth.loc[
+            ground_truth["fit_provenance"].eq("cutoff_clean_out_of_sample")
+            & ground_truth["period"].eq("Total"),
+            "realized_undiscounted_net_loss",
+        ].iloc[0]
     )
-    validation = lgd_validation_by_era(panel, lgd_model)
     reconciliation = _chain_ladder_reconciliation(config, result)
-    chain = reconciliation.iloc[1]
-    summary = pd.DataFrame.from_records(
-        [
+    reconciliation = _with_fit_provenance(
+        reconciliation, "cutoff_clean_out_of_sample", config.model.backtest_fit_end
+    )
+    chain = reconciliation.iloc[0]
+    chain_ladder_projection = float(reconciliation.iloc[1]["subtotal_dollars"])
+    comparison = build_fit_comparison(
+        cutoff_result=result,
+        production_result=production_result,
+        realized_loss=realized_loss,
+        chain_ladder_projection=chain_ladder_projection,
+        cutoff_fit_end=config.model.backtest_fit_end,
+        production_fit_end=config.model.production_fit_end,
+    )
+    summary_records = []
+    for provenance, fit_end in fit_specs.items():
+        fit_result = results[provenance]
+        summary_records.append(
             {
                 "as_of_month": cutoff,
                 "segments": len(segments),
                 "forecast_months": len(macro_path),
-                "outstanding_balance": result.outstanding_balance,
-                "lifetime_ecl": result.lifetime_ecl,
-                "ecl_rate": result.ecl_rate,
+                "original_balance": float(acquisition["original_upb"].sum()),
+                "outstanding_balance": fit_result.outstanding_balance,
+                "lifetime_ecl": fit_result.lifetime_ecl,
+                "ecl_rate": fit_result.ecl_rate,
+                "undiscounted_lifetime_loss": float(
+                    fit_result.monthly["undiscounted_loss"].sum()
+                ),
+                "fit_provenance": provenance,
+                "fit_end": fit_end or "full_available_history",
             }
-        ]
-    )
+        )
+    summary = pd.DataFrame.from_records(summary_records)
     _write_csv(summary, config.paths.ecl_summary)
-    _write_csv(result.by_score_band, config.paths.ecl_by_score_band)
-    _write_csv(result.by_vintage, config.paths.ecl_by_vintage)
-    _write_csv(result.monthly, config.paths.ecl_monthly)
-    _write_csv(validation, config.paths.lgd_validation)
-    _write_csv(lgd_model.coefficient_table(), config.paths.lgd_coefficients)
+    _write_csv(
+        _with_fit_provenance(
+            result.by_score_band, "cutoff_clean_out_of_sample", config.model.backtest_fit_end
+        ),
+        config.paths.ecl_by_score_band,
+    )
+    _write_csv(
+        _with_fit_provenance(
+            result.by_vintage, "cutoff_clean_out_of_sample", config.model.backtest_fit_end
+        ),
+        config.paths.ecl_by_vintage,
+    )
+    _write_csv(
+        _with_fit_provenance(
+            result.monthly, "cutoff_clean_out_of_sample", config.model.backtest_fit_end
+        ),
+        config.paths.ecl_monthly,
+    )
+    _write_csv(pd.concat(validations, ignore_index=True), config.paths.lgd_validation)
+    _write_csv(pd.concat(coefficients, ignore_index=True), config.paths.lgd_coefficients)
     _write_csv(reconciliation, config.paths.ecl_reconciliation)
-    plot_monthly_loss_path(result.monthly, config.paths.ecl_plot)
+    _write_csv(ground_truth, config.paths.ecl_ground_truth_validation)
+    _write_csv(comparison, config.paths.ecl_fit_comparison)
+    plot_monthly_loss_path(
+        result.monthly,
+        config.paths.ecl_plot,
+        fit_provenance="cutoff-clean fit through 2018-12",
+    )
+    cutoff_total = float(result.monthly["undiscounted_loss"].sum())
+    production_total = float(production_result.monthly["undiscounted_loss"].sum())
     return Milestone6Report(
         result.lifetime_ecl,
         result.outstanding_balance,
         result.ecl_rate,
-        float(chain["loss_dollars"]),
+        float(chain["subtotal_dollars"]),
         float(chain["loss_rate"]),
-        result.lifetime_ecl - float(chain["loss_dollars"]),
+        result.lifetime_ecl - float(chain["subtotal_dollars"]),
         config.paths.ecl_summary,
         config.paths.ecl_by_score_band,
         config.paths.ecl_by_vintage,
@@ -490,4 +889,11 @@ def run_cecl(config: EngineConfig) -> Milestone6Report:
         config.paths.lgd_validation,
         config.paths.lgd_coefficients,
         config.paths.ecl_reconciliation,
+        config.paths.ecl_ground_truth_validation,
+        config.paths.ecl_fit_comparison,
+        cutoff_total,
+        production_total,
+        realized_loss,
+        float(comparison["leakage_gap_dollars"].iloc[0]),
+        float(comparison["leakage_gap_percentage_points"].iloc[0]),
     )

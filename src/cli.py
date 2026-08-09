@@ -15,6 +15,7 @@ from src.model.cecl import run_cecl
 from src.model.transitions import run_transition_model
 from src.model.vintage import run_vintage
 from src.panel.build_panel import run_panel
+from src.scenarios.run import run_scenarios
 from src.spark_session import build_spark_session
 
 
@@ -22,7 +23,16 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "stage",
-        choices=("config", "synthetic", "ingest", "panel", "vintage", "transitions", "ecl"),
+        choices=(
+            "config",
+            "synthetic",
+            "ingest",
+            "panel",
+            "vintage",
+            "transitions",
+            "ecl",
+            "scenarios",
+        ),
     )
     parser.add_argument("--env", default="local", help="Configuration overlay name")
     parser.add_argument("--config-dir", default="config", help="Directory containing YAML config")
@@ -48,6 +58,9 @@ def main() -> None:
         return
     if args.stage == "ecl":
         print(json.dumps(asdict(run_cecl(config)), indent=2))
+        return
+    if args.stage == "scenarios":
+        print(json.dumps(asdict(run_scenarios(config)), indent=2))
         return
     if args.stage in {"ingest", "panel", "vintage", "transitions"}:
         spark = build_spark_session(config)

@@ -1,0 +1,4 @@
+portfolio_scope,fit_provenance,fit_end,scenario,outstanding_balance,lifetime_ecl,ecl_rate,delta_vs_baseline_dollars,delta_vs_baseline_pct,undiscounted_lifetime_loss
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,baseline,3615754114.04,20747269.81835499,0.005738020109772727,0.0,0.0,24666266.765442945
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,adverse,3615754114.04,50572988.3934381,0.01398684390541459,29825718.57508311,1.4375731764329043,58179543.23369603
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,severely_adverse,3615754114.04,161340940.33960125,0.04462165712903795,140593670.52124625,6.7764901961637305,181696884.93850714

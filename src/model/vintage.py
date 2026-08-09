@@ -537,7 +537,8 @@ def plot_vintage_curves(model: VintageCurveModel, path: str) -> None:
     axis.set(
         title=(
             "Cumulative Net Loss Rate by Origination Vintage "
-            f"({model.cohort_grain.title()} Cohorts)"
+            f"({model.cohort_grain.title()} Cohorts)\n"
+            "Local synthetic portfolio (25,000 loans) — pre-cutoff chain-ladder fit"
         ),
         xlabel="Months on book",
         ylabel="Cumulative net loss / original balance (%)",
@@ -566,6 +567,13 @@ def plot_vintage_curves(model: VintageCurveModel, path: str) -> None:
 def write_ultimate_table(table: pd.DataFrame, path: str) -> None:
     """Persist the auditable observed/projected vintage ultimate table."""
 
+    table = table.copy()
+    if "fit_end" not in table:
+        table.insert(0, "fit_end", "2018-12-01")
+    if "fit_provenance" not in table:
+        table.insert(0, "fit_provenance", "pre_cutoff_chain_ladder")
+    if "portfolio_scope" not in table:
+        table.insert(0, "portfolio_scope", "Local synthetic portfolio (25,000 loans)")
     if "://" in path:
         with fsspec.open(path, "wt") as stream:
             table.to_csv(stream, index=False)

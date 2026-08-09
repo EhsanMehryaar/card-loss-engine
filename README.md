@@ -4,7 +4,7 @@
 
 Production-shaped consumer credit loss forecasting and CECL allowance engine.
 
-## Project overview
+## What this is
 
 Card Loss Engine forecasts vintage and roll-rate credit losses and produces a
 CECL-oriented allowance view for a consumer credit portfolio. It covers the
@@ -19,11 +19,59 @@ scenario paths that are outside the observed development window.
 
 ### Key results
 
-The chain-ladder baseline achieved 4.71% MAPE on 2008–2010 cohorts but 63.51%
-on 2011+ cohorts because it cannot anticipate a macroeconomic shock outside its
-observation window. The conditional transition model recovered all eleven
-ground-truth macro slopes with the correct signs, validating the intended
-macro-to-credit transmission structure in the synthetic portfolio.
+All modeling results below use the **local 25,000-loan synthetic portfolio**.
+At the 2018-12 cutoff, realized future net loss is $71.83M. The cutoff-clean M6
+fit, estimated only through 2018-12, projects $78.67M: +$6.84M / +9.51% error.
+The pre-cutoff M4 chain ladder projects $14.41M: -$57.43M / -79.94% error. M6
+therefore reduces absolute error by **88.1%** out of sample. For comparison, the
+production full-history fit projects $72.42M, but that $0.59M / 0.82% error is
+leaked for this backtest; leakage removes $6.25M of apparent error, or 8.70
+percentage points.
+
+The chain-ladder cohort backtest records 4.71% MAPE on 2008–2010 and 63.51% on
+2011+ cohorts. The conditional transition model recovers all eleven synthetic
+ground-truth macro slopes with correct signs. Under the production full-history
+fit and published 2019 Federal Reserve paths, lifetime ECL is $20.75M baseline,
+$50.57M adverse (+143.76%), and $161.34M severely adverse (+677.65%).
+Current→DPD30 produces the largest severe-versus-baseline increase in expected
+state flow. The EMR run preserves Current→DPD30 to four decimal places at 10×
+portfolio scale: 0.7683% on 250,000 loans versus 0.7678% locally.
+
+## Approach
+
+`raw files → curated panel → vintage baseline → conditional transition matrices
+→ PD × EAD × LGD → lifetime ECL → Federal Reserve scenarios`
+
+- Spark performs raw ingestion, account-month panel construction, reconciliation,
+  vintage aggregation, and compact transition-cell aggregation.
+- Pandas, NumPy, and scikit-learn fit the small aggregated tables and iterate the
+  Markov state vectors. ChargeOff, Prepaid, and Repurchased remain separate
+  absorbing competing risks.
+- Production uses all available history. Ground-truth comparisons use the
+  separately configured cutoff-clean fit and exclude histories censored before
+  the reporting cutoff.
+
+## Repository tour
+
+- `src/ingest/` and `src/panel/`: data contracts, quality gates, and Spark panel.
+- `src/model/`: vintage, transition, forecast, LGD, and CECL calculations.
+- `src/scenarios/`: published-path loading, transformation, reversion, and M7 run.
+- `config/`: common assumptions plus local and EMR execution overlays.
+- `infra/`: EMR packaging, bootstrap, submission, diagnostics, and teardown.
+- `tests/`: arithmetic, regression, reconciliation, Spark, and scenario tests.
+- `docs/`: result artifacts, [model documentation](docs/model_documentation.md),
+  [monitoring plan](docs/monitoring_plan.md), and AWS evidence.
+
+## Limitations
+
+The data and known truth are synthetic; behavioral realism on real consumers is
+not established. The implementation uses mortgage collateral recovery and
+amortizing EAD, while revolving-card EAD requires undrawn-line conversion. The
+transition specification was tuned three times while consulting synthetic
+truth. Severe scenarios extrapolate beyond observed macro support, with
+uncertainty absent from point estimates. A pre-2007 crisis backtest and executed
+PSI/stability monitoring were scoped but not implemented. See the full
+[limitations and governance discussion](docs/model_documentation.md#limitations-and-weaknesses).
 
 ## Quick start
 
@@ -37,7 +85,8 @@ python -m src.cli panel --env local
 python -m src.cli vintage --env local
 python -m src.cli transitions --env local
 python -m src.cli ecl --env local
-pytest
+python -m src.cli scenarios --env local
+make test
 ```
 
 All paths and Spark settings live in YAML configuration. Transformation code is
@@ -113,9 +162,14 @@ See [`docs/running_on_aws.md`](docs/running_on_aws.md) for the corrected runbook
 and [`docs/assumptions_log.md`](docs/assumptions_log.md) for the findings and
 design rationale.
 
-The Milestone 6 allowance result, PD/EAD/LGD decompositions, LGD validation,
+The Milestone 6 allowance result for the **local 25,000-loan portfolio**—not the
+250,000-loan EMR scale run—plus its PD/EAD/LGD decompositions, LGD validation,
 monthly loss path, and chain-ladder reconciliation are summarized in
 [`docs/m6_results.md`](docs/m6_results.md).
+
+The published-scenario source mapping, reversion assumption, three ECL paths,
+transition attribution, and extrapolation diagnostics are in
+[`docs/m7_results.md`](docs/m7_results.md).
 
 Local Spark ingestion requires Java 17. On native Windows, Hadoop's local-file
 adapter also requires matching `winutils.exe` and `hadoop.dll` binaries available

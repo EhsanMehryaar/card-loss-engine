@@ -1,18 +1,18 @@
-origin,destination,unemployment_1pp_change_bps
-Current,Current,-16.702207344942988
-Current,DPD30,17.447639093211592
-DPD30,Current,-209.15645206582957
-DPD30,DPD30,-45.38298713856304
-DPD30,DPD60,254.53943920439482
-DPD60,DPD30,-270.3609661170725
-DPD60,DPD60,38.54567583319701
-DPD60,DPD90,231.81529028387575
-DPD90,DPD60,-254.0185785434901
-DPD90,DPD90,-21.176313229233635
-DPD90,DPD120,275.19489177272345
-DPD120,DPD90,-282.913834699231
-DPD120,DPD120,53.22058327108137
-DPD120,DPD150,229.69325142814856
-DPD150,DPD120,-262.6376303007702
-DPD150,DPD150,6.494020104740317
-DPD150,ChargeOff,256.14361019602904
+portfolio_scope,fit_provenance,fit_end,origin,destination,unemployment_1pp_change_bps
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,Current,Current,-16.702207344942988
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,Current,DPD30,17.447639093211592
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD30,Current,-209.1564520658296
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD30,DPD30,-45.38298713856304
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD30,DPD60,254.5394392043948
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD60,DPD30,-270.3609661170725
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD60,DPD60,38.54567583319701
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD60,DPD90,231.81529028387573
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD90,DPD60,-254.0185785434901
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD90,DPD90,-21.176313229233635
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD90,DPD120,275.19489177272345
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD120,DPD90,-282.913834699231
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD120,DPD120,53.22058327108137
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD120,DPD150,229.69325142814856
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD150,DPD120,-262.6376303007702
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD150,DPD150,6.494020104740317
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,DPD150,ChargeOff,256.14361019602904

@@ -1,3 +1,6 @@
-measure,loss_dollars,denominator_dollars,loss_rate,scope
-M6 lifetime ECL,82808294.06337309,4950178750.33,0.016728344215419036,Discounted future expected loss on exposure outstanding at cutoff
-M4 chain-ladder ultimate,93659875.8853229,10947600000.0,0.00855528845457661,Undiscounted projected ultimate loss on original cohort balances
+portfolio_scope,fit_provenance,fit_end,step,adjustment_dollars,subtotal_dollars,loss_rate,basis
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,M4 chain-ladder ultimate,93659875.8853229,93659875.8853229,0.00855528845457661,Undiscounted realized plus projected ultimate on original cohorts
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,Less: realized losses incurred through cutoff,-79252351.75999948,14407524.125323415,,Observed cumulative net loss through 2018-12-01
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,Restriction to surviving exposure,0.0,14407524.125323415,,"No separate adjustment: after incurred loss is removed, exited loans have zero future marginal PD; another subtraction would double-count exits"
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,Macro-conditioned roll-rate model versus M4 remaining loss,64260806.23866758,78668330.36399099,,M6 undiscounted is 5.46x M4 remaining; M4 backtest underprojects 2011+ cohorts by 125.61 bps ME / 63.51% MAPE
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,Discounting at 5% annual effective rate,-9751698.917559087,68916631.4464319,0.019060099020237056,Difference between undiscounted and discounted M6 monthly loss

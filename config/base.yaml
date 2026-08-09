@@ -45,6 +45,10 @@ model:
   vintage_primary_denominator: original_balance
   conditional_regularization_c: 10.0
   conditional_dpd150_regularization_c: 0.002
+  # null means all data available at estimation time. The dated fit is used
+  # only for the out-of-sample ground-truth backtest.
+  production_fit_end: null
+  backtest_fit_end: "2018-12-01"
 
 ingest:
   delimiter: "|"
@@ -74,3 +78,14 @@ synthetic:
   score_std: 55.0
   repurchase_rate: 0.0075
   repurchase_max_mob: 24
+
+scenarios:
+  source_vintage: 2019
+  horizon_quarters: 13
+  # After the published 13-quarter window, unemployment and HPI growth close
+  # half of their gap to their long-run levels every eight quarters.
+  reversion_half_life_quarters: 8
+  long_run_unemployment_rate: 4.8
+  long_run_hpi_change_yoy: 0.03
+  pre_cutoff_unemployment_max: 7.25
+  full_history_unemployment_max: 9.86

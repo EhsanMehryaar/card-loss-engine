@@ -20,6 +20,15 @@ paths:
   lgd_validation: s3://${CLE_S3_BUCKET}/card-loss-engine/output/lgd_validation_by_era.csv
   lgd_coefficients: s3://${CLE_S3_BUCKET}/card-loss-engine/output/lgd_coefficients.csv
   ecl_reconciliation: s3://${CLE_S3_BUCKET}/card-loss-engine/output/ecl_chain_ladder_reconciliation.csv
+  ecl_ground_truth_validation: s3://${CLE_S3_BUCKET}/card-loss-engine/output/ecl_ground_truth_validation.csv
+  ecl_fit_comparison: s3://${CLE_S3_BUCKET}/card-loss-engine/output/m6_fit_comparison.csv
+  scenario_source: data/scenarios/fed_2019_supervisory_scenarios.csv
+  scenario_summary: s3://${CLE_S3_BUCKET}/card-loss-engine/output/m7_scenario_summary.csv
+  scenario_monthly: s3://${CLE_S3_BUCKET}/card-loss-engine/output/m7_monthly_loss_paths.csv
+  scenario_paths: s3://${CLE_S3_BUCKET}/card-loss-engine/output/m7_macro_paths.csv
+  scenario_plot: s3://${CLE_S3_BUCKET}/card-loss-engine/output/m7_scenario_loss_curves.png
+  scenario_transition_attribution: s3://${CLE_S3_BUCKET}/card-loss-engine/output/m7_transition_attribution.csv
+  scenario_extrapolation: s3://${CLE_S3_BUCKET}/card-loss-engine/output/m7_extrapolation.csv
 
 sample_fraction: 1.0
 

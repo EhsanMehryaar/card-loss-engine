@@ -20,6 +20,15 @@ paths:
   lgd_validation: docs/lgd_validation_by_era.csv
   lgd_coefficients: docs/lgd_coefficients.csv
   ecl_reconciliation: docs/ecl_chain_ladder_reconciliation.csv
+  ecl_ground_truth_validation: docs/ecl_ground_truth_validation.csv
+  ecl_fit_comparison: docs/m6_fit_comparison.csv
+  scenario_source: data/scenarios/fed_2019_supervisory_scenarios.csv
+  scenario_summary: docs/m7_scenario_summary.csv
+  scenario_monthly: docs/m7_monthly_loss_paths.csv
+  scenario_paths: docs/m7_macro_paths.csv
+  scenario_plot: docs/m7_scenario_loss_curves.png
+  scenario_transition_attribution: docs/m7_transition_attribution.csv
+  scenario_extrapolation: docs/m7_extrapolation.csv
 
 sample_fraction: 1.0
 

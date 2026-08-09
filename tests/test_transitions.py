@@ -9,9 +9,24 @@ from src.model.conditional import (
     DELINQUENT_STATES,
     TRANSIENT_STATES,
     fit_conditional_models,
+    transition_fit_sample,
 )
 from src.model.transitions import empirical_transition_matrix, observed_transition_rows
 from src.panel.macro import MACRO_VALUE_COLUMNS
+
+
+def test_transition_fit_endpoint_is_configurable() -> None:
+    counts = pd.DataFrame(
+        {
+            "as_of_month": pd.to_datetime(["2018-12-01", "2019-01-01"]),
+            "transition_count": [10, 20],
+        }
+    )
+
+    cutoff = transition_fit_sample(counts, "2018-12-01")
+
+    assert cutoff["transition_count"].tolist() == [10]
+    assert transition_fit_sample(counts, None)["transition_count"].tolist() == [10, 20]
 
 
 def _count_frame() -> pd.DataFrame:

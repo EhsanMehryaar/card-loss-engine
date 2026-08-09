@@ -1,0 +1,3 @@
+fit_provenance,fit_end,portfolio_scope,scenario,cutoff_loans,cutoff_balance,projected_undiscounted_loss,realized_undiscounted_net_loss,error_dollars,error_pct_of_realized
+see_artifact_rows_or_cutoff_clean,2018-12-01_or_labelled_in_rows,"Local synthetic portfolio (25,000 loans)",Reported M6 including already-censored histories,12829,4950178750.33,94548645.755396,71833220.68,22715425.075395983,0.3162245108929171
+see_artifact_rows_or_cutoff_clean,2018-12-01_or_labelled_in_rows,"Local synthetic portfolio (25,000 loans)",Observed active at 2018-12 cutoff only,8927,3615754114.04,72418937.26251954,71833220.68,585716.5825195312,0.0081538399221825

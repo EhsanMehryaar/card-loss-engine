@@ -153,6 +153,13 @@ def empirical_transition_matrix(
 
 
 def _write_csv(frame: pd.DataFrame, path: str) -> None:
+    frame = frame.copy()
+    if "fit_end" not in frame:
+        frame.insert(0, "fit_end", "full_available_history")
+    if "fit_provenance" not in frame:
+        frame.insert(0, "fit_provenance", "production_full_history")
+    if "portfolio_scope" not in frame:
+        frame.insert(0, "portfolio_scope", "Local synthetic portfolio (25,000 loans)")
     if "://" in path:
         with fsspec.open(path, "wt") as stream:
             frame.to_csv(stream, index=False)

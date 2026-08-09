@@ -1,7 +1,13 @@
-score_band,observations,recovery_intercept,hpi_coefficient,uses_fallback,fallback_lgd
-FICO_000-619,231,0.6595116457104538,1.2526399986190047,False,0.45
-FICO_620-659,373,0.6870327738055627,1.0491495196002052,False,0.45
-FICO_660-699,371,0.7086480784538334,1.594195129338658,False,0.45
-FICO_700-739,264,0.7494627166418821,0.9477354426432316,False,0.45
-FICO_740-779,133,0.7576876374240364,0.6822973933389809,False,0.45
-FICO_780-850,63,0.7633133431255621,0.6791798762105572,False,0.45
+portfolio_scope,fit_provenance,fit_end,score_band,observations,recovery_intercept,hpi_coefficient,uses_fallback,fallback_lgd
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,FICO_000-619,153,0.670293849166426,1.1176138899905195,False,0.45
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,FICO_620-659,222,0.6832558520424408,1.1505133370733445,False,0.45
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,FICO_660-699,196,0.7331785392287528,0.9827619244036024,False,0.45
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,FICO_700-739,116,0.7321126473611806,1.3366063969292075,False,0.45
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,FICO_740-779,59,0.8252835860263746,-0.7489722102392561,False,0.45
+"Local synthetic portfolio (25,000 loans)",cutoff_clean_out_of_sample,2018-12-01,FICO_780-850,29,0.822081536907588,-0.8255196529441587,False,0.45
+"Local synthetic portfolio (25,000 loans)",production_full_history_leaked_for_backtest,full_available_history,FICO_000-619,231,0.6595116457104538,1.2526399986190047,False,0.45
+"Local synthetic portfolio (25,000 loans)",production_full_history_leaked_for_backtest,full_available_history,FICO_620-659,373,0.6870327738055627,1.0491495196002052,False,0.45
+"Local synthetic portfolio (25,000 loans)",production_full_history_leaked_for_backtest,full_available_history,FICO_660-699,371,0.7086480784538334,1.594195129338658,False,0.45
+"Local synthetic portfolio (25,000 loans)",production_full_history_leaked_for_backtest,full_available_history,FICO_700-739,264,0.7494627166418821,0.9477354426432316,False,0.45
+"Local synthetic portfolio (25,000 loans)",production_full_history_leaked_for_backtest,full_available_history,FICO_740-779,133,0.7576876374240364,0.6822973933389809,False,0.45
+"Local synthetic portfolio (25,000 loans)",production_full_history_leaked_for_backtest,full_available_history,FICO_780-850,63,0.7633133431255621,0.6791798762105572,False,0.45

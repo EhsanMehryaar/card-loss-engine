@@ -46,6 +46,8 @@ class ModelConfig:
     vintage_primary_denominator: str
     conditional_regularization_c: float
     conditional_dpd150_regularization_c: float
+    production_fit_end: str | None
+    backtest_fit_end: str
 
 
 @dataclass(frozen=True)
@@ -61,6 +63,19 @@ class SyntheticConfig:
     score_std: float
     repurchase_rate: float
     repurchase_max_mob: int
+
+
+@dataclass(frozen=True)
+class ScenarioConfig:
+    """Published-scenario selection and post-window reversion assumptions."""
+
+    source_vintage: int
+    horizon_quarters: int
+    reversion_half_life_quarters: int
+    long_run_unemployment_rate: float
+    long_run_hpi_change_yoy: float
+    pre_cutoff_unemployment_max: float
+    full_history_unemployment_max: float
 
 
 @dataclass(frozen=True)
@@ -103,6 +118,15 @@ class PathConfig:
     lgd_validation: str
     lgd_coefficients: str
     ecl_reconciliation: str
+    ecl_ground_truth_validation: str
+    ecl_fit_comparison: str
+    scenario_source: str
+    scenario_summary: str
+    scenario_monthly: str
+    scenario_paths: str
+    scenario_plot: str
+    scenario_transition_attribution: str
+    scenario_extrapolation: str
 
 
 @dataclass(frozen=True)
@@ -124,6 +148,7 @@ class EngineConfig:
     states: StateConfig
     model: ModelConfig
     synthetic: SyntheticConfig
+    scenarios: ScenarioConfig
     ingest: IngestConfig
     paths: PathConfig
     sample_fraction: float
@@ -198,9 +223,7 @@ def load_config(environment: str, config_dir: str | Path) -> EngineConfig:
         "quarterly",
         "annual",
     }:
-        raise ValueError(
-            "model.vintage_cohort_grain must be monthly, quarterly, or annual"
-        )
+        raise ValueError("model.vintage_cohort_grain must be monthly, quarterly, or annual")
     mapped_states = {str(state) for state in values["states"]["zero_balance_codes"].values()}
     unknown_mapped_states = mapped_states - set(values["states"]["ordered"])
     if unknown_mapped_states:
@@ -228,17 +251,20 @@ def load_config(environment: str, config_dir: str | Path) -> EngineConfig:
             vintage_analysis_as_of=str(values["model"]["vintage_analysis_as_of"]),
             vintage_maturity_mob=int(values["model"]["vintage_maturity_mob"]),
             vintage_cohort_grain=str(values["model"]["vintage_cohort_grain"]),
-            vintage_primary_denominator=str(
-                values["model"]["vintage_primary_denominator"]
-            ),
-            conditional_regularization_c=float(
-                values["model"]["conditional_regularization_c"]
-            ),
+            vintage_primary_denominator=str(values["model"]["vintage_primary_denominator"]),
+            conditional_regularization_c=float(values["model"]["conditional_regularization_c"]),
             conditional_dpd150_regularization_c=float(
                 values["model"]["conditional_dpd150_regularization_c"]
             ),
+            production_fit_end=(
+                str(values["model"]["production_fit_end"])
+                if values["model"].get("production_fit_end") is not None
+                else None
+            ),
+            backtest_fit_end=str(values["model"]["backtest_fit_end"]),
         ),
         synthetic=synthetic,
+        scenarios=ScenarioConfig(**values["scenarios"]),
         ingest=IngestConfig(**ingest_values),
         paths=PathConfig(**values["paths"]),
         sample_fraction=fraction,

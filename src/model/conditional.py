@@ -266,6 +266,18 @@ def _fit_origin(
     return best
 
 
+def transition_fit_sample(counts: pd.DataFrame, fit_end: str | None) -> pd.DataFrame:
+    """Apply a labelled estimation-window endpoint to aggregated transitions."""
+
+    if fit_end is None:
+        return counts.copy()
+    endpoint = pd.Timestamp(fit_end)
+    sample = counts[pd.to_datetime(counts["as_of_month"]) <= endpoint].copy()
+    if sample.empty:
+        raise ValueError(f"No transitions are available through fit endpoint {fit_end}")
+    return sample
+
+
 def fit_conditional_models(
     counts: pd.DataFrame, macro: pd.DataFrame, config: EngineConfig
 ) -> ConditionalTransitionModel:

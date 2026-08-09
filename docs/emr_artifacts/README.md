@@ -4,9 +4,9 @@ The 250,000-loan EMR 7.13.0 run completed successfully and the cluster was
 terminated. The human-readable result record is in [`run_summary.md`](run_summary.md).
 Durable evidence remains in these S3 prefixes:
 
-- `s3://card-loss-engine-emh/spark-events/`: Spark event logs.
-- `s3://card-loss-engine-emh/emr-logs/`: EMR/YARN application and node logs.
-- `s3://card-loss-engine-emh/emr-artifacts/`: the redacted cluster summary JSON,
+- `s3://${CLE_S3_BUCKET}/spark-events/`: Spark event logs.
+- `s3://${CLE_S3_BUCKET}/emr-logs/`: EMR/YARN application and node logs.
+- `s3://${CLE_S3_BUCKET}/emr-artifacts/`: the redacted cluster summary JSON,
   S3 object listing, and captured run artifacts.
 
 The event logs can be downloaded and replayed with a Spark 3.5-compatible local

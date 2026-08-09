@@ -1,0 +1,4 @@
+portfolio_scope,fit_provenance,fit_end,scenario,published_months,published_fraction_above_pre_cutoff_max,published_fraction_above_full_history_max,lifetime_fraction_above_pre_cutoff_max,lifetime_fraction_above_full_history_max,peak_unemployment_rate,pre_cutoff_max,full_history_max
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,baseline,39,0.0,0.0,0.0,0.0,4.732528276388402,7.25,9.86
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,adverse,39,0.0,0.0,0.0,0.0,7.0,7.25,9.86
+"Local synthetic portfolio (25,000 loans)",production_full_history,full_available_history,severely_adverse,39,0.8461538461538461,0.15384615384615385,0.4,0.05,10.0,7.25,9.86

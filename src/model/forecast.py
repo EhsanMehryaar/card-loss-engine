@@ -37,6 +37,25 @@ class ForecastResult:
     portfolio: pd.DataFrame
 
 
+class CachedMatrixBuilder:
+    """Memoize fitted matrices shared by score/vintage forecast cells."""
+
+    def __init__(self, model: MatrixBuilder) -> None:
+        self.model = model
+        self.states = tuple(model.states)
+        self._cache: dict[tuple[object, ...], np.ndarray] = {}
+
+    def build_matrix(
+        self, mob: int, score_band: str, macro: dict[str, float]
+    ) -> np.ndarray:
+        key = (mob, score_band, *sorted(macro.items()))
+        if key not in self._cache:
+            self._cache[key] = np.asarray(
+                self.model.build_matrix(mob, score_band, macro), dtype=float
+            )
+        return self._cache[key]
+
+
 ABSORBING_STATES = ("ChargeOff", "Prepaid", "Repurchased")
 
 

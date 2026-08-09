@@ -240,3 +240,66 @@ This file is cumulative and must be appended to at every subsequent milestone.
 - M6 and M4 are intentionally not equal. M6 measures discounted future loss on
   balances outstanding at the cutoff; M4 chain-ladder ultimate includes
   historical and projected cohort loss on original balances and is undiscounted.
+- Post-cutoff ground-truth validation runs through 2028-11, matching the final
+  M6 macro-path month. Realized net loss is default BOM UPB less net disposition
+  recovery, floored at zero. M6 overprojects realized loss by $22.72M (31.62%);
+  an order-neutral Shapley decomposition attributes +$27.55M to PD, -$3.26M to
+  EAD, and -$1.57M to LGD.
+- PD diagnosis found that the reported snapshot includes 3,902 already-censored
+  histories and $1.334B of exposure. Excluding them while holding models fixed
+  reduces undiscounted loss from $94.55M to $72.42M, versus $71.83M realized.
+  This population-scope defect, not a general transition-rate overshoot, is the
+  dominant source of the reported +31.62% error.
+- The current transition fit also has post-cutoff leakage because M5 counts are
+  not filtered at 2018-12 before conditional estimation. A cutoff-clean sample
+  has maximum unemployment of 7.25%; 44.4% of 2019–2021 months exceed that
+  maximum. The cutoff-clean transition overshoot is concentrated in
+  Current-to-DPD30 and DPD90-to-DPD120, while the other adverse forward rolls
+  underpredict. Macro extrapolation remains a material limitation for stress
+  scenarios, but it cannot be claimed as the cause of the reported M6 error
+  until the population and temporal-validity defects are corrected.
+
+## Milestone 7
+
+- The Federal Reserve 2019 supervisory scenario vintage is used because its
+  first forecast quarter follows the 2018-12 cutoff. Values are transcribed from
+  the published Appendix A table rather than invented locally.
+- Quarterly unemployment is repeated monthly. Published HPI index levels are
+  converted to year-over-year change using the Fed historical anchors, and
+  three-month unemployment change is calculated after monthly expansion.
+- After the 13-quarter scenario window, unemployment and HPI growth revert to
+  4.8% and 3.0% with an eight-quarter half-life. This explicit tail assumption
+  extends the scenario through the 120-month lifetime horizon.
+- Scenario forecasting includes only the 8,927 loans observed active at the
+  cutoff. It excludes the already-censored histories diagnosed in M6.
+- Production scenario ECL uses the full-history transition fit; the cutoff-clean
+  fit remains a backtesting instrument. Macro-conditioned LGD is reevaluated in
+  every scenario month.
+- Severely adverse peaks at 10.0% unemployment. Of its 39 published months,
+  84.6% exceed the cutoff-clean 7.25% maximum and 15.4% exceed the full-history
+  9.86% maximum. The severe result is therefore an extrapolative point estimate
+  with unquantified model uncertainty.
+
+## Milestone 9 and cutoff-clean correction
+
+- Transition fit windows are explicit configuration. `production_fit_end: null`
+  means all available history and supports forward allowance/M7 use;
+  `backtest_fit_end: 2018-12-01` supports only out-of-sample scoring.
+- The cutoff-clean M6 comparison also fits LGD only through the cutoff and keeps
+  the active-population correction. It projects $78.67M undiscounted versus
+  $71.83M realized: +$6.84M / +9.51%. Production full history projects $72.42M:
+  +$0.59M / +0.82%, but is leaked for this comparison.
+- Leakage reduces apparent absolute error by $6.25M, or 8.70 percentage points.
+  The earlier 60.4% error-reduction claim is withdrawn. Against M4's $57.43M
+  absolute error, cutoff-clean M6 reduces absolute error by 88.1%.
+- Every regenerated M6 and M7 tabular artifact records portfolio scope, fit
+  provenance, and fit endpoint. Figures state portfolio and fit provenance in
+  their title.
+- Milestone 8 was deliberately descoped. A crisis backtest trained pre-2007 and
+  forecast over 2008–2010, executed PSI monitoring, and transition-stability
+  monitoring remain future work. Thresholds, escalation, and remediation are
+  specified prospectively in `docs/monitoring_plan.md`.
+- Final documentation follows an SR 11-7-style structure: purpose/scope, data,
+  methodology, assumptions, validation, limitations, and governance. Model
+  Development, Credit Risk, Data Engineering, Model Operations, independent
+  Model Risk, and Internal Audit have separately stated responsibilities.
