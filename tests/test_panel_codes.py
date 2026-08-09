@@ -55,7 +55,9 @@ def _macro(spark, config):
 
 
 def test_all_configured_zero_balance_codes_map_to_expected_exit(spark, quality_config) -> None:
-    rows = [(f"L{index}", code) for index, code in enumerate(quality_config.states.zero_balance_codes)]
+    rows = [
+        (f"L{index}", code) for index, code in enumerate(quality_config.states.zero_balance_codes)
+    ]
     panel = construct_panel(
         _acquisition(spark, [loan_id for loan_id, _ in rows]),
         _performance(spark, rows),
@@ -64,7 +66,9 @@ def test_all_configured_zero_balance_codes_map_to_expected_exit(spark, quality_c
     )
     actual = {
         row["zero_balance_code"]: (row["delinquency_state"], row["exit_reason"])
-        for row in panel.join(_performance(spark, rows).select("loan_id", "zero_balance_code"), "loan_id")
+        for row in panel.join(
+            _performance(spark, rows).select("loan_id", "zero_balance_code"), "loan_id"
+        )
         .select("zero_balance_code", "delinquency_state", "exit_reason")
         .collect()
     }

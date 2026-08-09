@@ -161,3 +161,51 @@ This file is cumulative and must be appended to at every subsequent milestone.
   frequency, is its intended primary channel. Interpretation therefore reports
   probability changes and treats only effects of at least one basis point as
   material.
+
+## EMR scale validation (2026-08-08)
+
+- The completed EMR 7.13.0 run used one primary and three `m5.xlarge` core
+  nodes in `us-east-1`, processed 250,000 loans and 20,258,094 account-months,
+  ran for about 65 minutes, and cost approximately $1.05. Exit counts and the
+  transition denominator reconcile exactly, and Current-to-DPD30 was 0.7683%
+  versus 0.7678% locally at 25,000 loans. The close agreement across a 10x scale
+  change is the primary distributed-correctness validation.
+- Executor sizing reserved one 3-core, 9-GiB executor per 4-vCPU, 16-GiB core
+  node, leaving one vCPU and roughly 7 GiB per node for YARN, the operating
+  system, and overhead. That plan yields three executors and nine executor
+  cores. The normal 2–3x-executor-core rule suggests 18–27 shuffle partitions;
+  32 rounded slightly above that range to 3.6x planned executor cores and 2.7x
+  the 12 physical worker cores. EMR's default dynamic
+  allocation won during the completed run and reported 11 executors; future
+  submissions disable it so the configured topology is authoritative.
+- At 32 shuffle partitions, ingestion ran 424 tasks at about 47,800 rows per
+  task in 89.5 seconds. At 200 partitions it ran 2,446 tasks at about 8,300 rows
+  per task in 96.0 seconds. The 5.8x task increase and 7.3% slowdown show fixed
+  scheduling, serialization, and output-commit overhead. Because CSV parsing
+  and S3 reads dominate ingestion, this modest timing result is not assumed to
+  transfer unchanged to the shuffle-heavy panel stage.
+- Panel shuffle scaled from 213 MB at 2.02 million rows locally to 2,380 MB at
+  20.26 million rows on EMR: 11.2x shuffle for 10.0x data. The mild
+  superlinearity is attributed to more distinct `loan_id` keys touching more
+  exchange partitions. Partitioning by loan remains skew-resistant because an
+  individual loan's cardinality is bounded by the observation window.
+- Four portability defects appeared only on the cluster. First, backslashes in
+  f-string expressions use PEP 701 syntax unavailable in Python 3.11 even
+  though the project declared 3.11 support; the local development interpreter
+  was Python 3.14. Expressions are now hoisted and Ruff parses against `py311`.
+  Second, Hive-style `vintage_year=YYYY` raw
+  fixture directories caused Spark partition discovery to inject a colliding
+  column; EMR fixtures are now flat vendor-shaped files, and ingestion drops a
+  discovered performance-side `vintage_year` before joining the authoritative
+  acquisition vintage. Third, bootstrap installed PyYAML into a different
+  interpreter than Spark used; bootstrap and both PySpark roles are pinned to
+  `/usr/bin/python3`. Fourth, YARN client-mode `--files` localizes files for
+  executors, not the submitting driver; the driver now reads configuration from
+  the repository checkout. These are environment and deployment findings, not
+  changes to credit-state or loss-model assumptions.
+- Macro features form one global monthly series of approximately 350 rows.
+  Calendar gaps and lags therefore require a global order, so
+  `prepare_macro_features` intentionally coalesces the macro frame to one
+  partition before its unpartitioned windows. The same design on the
+  20.3-million-row account-month panel would create an unacceptable single-node
+  bottleneck; panel windows must remain partitioned by `loan_id`.

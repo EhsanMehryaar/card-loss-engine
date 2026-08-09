@@ -5,7 +5,6 @@ from pyspark.sql import Window
 from pyspark.sql import functions as F
 from pyspark.sql.types import LongType
 
-from src.config import PathConfig
 from src.ingest.raw_to_parquet import _attach_vintage_year, run_ingestion
 from src.ingest.synthetic import generate_portfolio, write_portfolio
 
@@ -30,26 +29,13 @@ def test_ten_percent_hash_sample_keeps_complete_contiguous_histories(
     root = tmp_path / "sampling"
     config = replace(
         quality_config,
-        paths=PathConfig(
+        paths=replace(
+            quality_config.paths,
             raw_acquisition=(root / "raw" / "acquisition").as_posix(),
             raw_performance=(root / "raw" / "performance").as_posix(),
             curated=(root / "curated").as_posix(),
             macro=(root / "raw" / "macro" / "unemployment.csv").as_posix(),
             output=(root / "output").as_posix(),
-            vintage_plot=(root / "docs" / "vintage_curves.png").as_posix(),
-            vintage_table=(root / "docs" / "vintage_ultimate_rates.csv").as_posix(),
-            vintage_annual_table=(
-                root / "docs" / "vintage_ultimate_rates_annual.csv"
-            ).as_posix(),
-            vintage_backtest_table=(
-                root / "docs" / "vintage_projection_accuracy.csv"
-            ).as_posix(),
-            transition_empirical_table=(root / "docs" / "empirical.csv").as_posix(),
-            transition_coefficients=(root / "docs" / "coefficients.csv").as_posix(),
-            transition_ground_truth=(root / "docs" / "ground_truth.csv").as_posix(),
-            transition_interpretations=(
-                root / "docs" / "interpretations.csv"
-            ).as_posix(),
         ),
         sample_fraction=0.10,
         synthetic=replace(

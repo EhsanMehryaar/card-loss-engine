@@ -40,7 +40,7 @@ class PanelReport:
 
 def _bucket(column: Column, boundaries: tuple[int, ...], prefix: str) -> Column:
     result: Column | None = None
-    for lower, upper in zip(boundaries[:-1], boundaries[1:]):
+    for lower, upper in zip(boundaries[:-1], boundaries[1:], strict=True):
         label = f"{prefix}{lower:03d}-{upper - 1:03d}"
         condition = (column >= F.lit(lower)) & (column < F.lit(upper))
         result = F.when(condition, F.lit(label)) if result is None else result.when(
@@ -178,7 +178,9 @@ def construct_panel(
             .otherwise(F.col("_next_upb_bom")),
         )
         .withColumn("_previous_month", F.lag("as_of_month").over(chronological))
-        .withColumn("_terminal_count", F.sum(F.col("exit_reason").isNotNull().cast("int")).over(per_loan))
+        .withColumn(
+            "_terminal_count", F.sum(F.col("exit_reason").isNotNull().cast("int")).over(per_loan)
+        )
         .withColumn("_is_last", is_last)
         .withColumn(
             "_duplicate_key_count",

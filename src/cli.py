@@ -11,6 +11,7 @@ from pathlib import Path
 from src.config import load_config
 from src.ingest.raw_to_parquet import run_ingestion
 from src.ingest.synthetic import generate_portfolio, write_portfolio
+from src.model.cecl import run_cecl
 from src.model.transitions import run_transition_model
 from src.model.vintage import run_vintage
 from src.panel.build_panel import run_panel
@@ -21,7 +22,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "stage",
-        choices=("config", "synthetic", "ingest", "panel", "vintage", "transitions"),
+        choices=("config", "synthetic", "ingest", "panel", "vintage", "transitions", "ecl"),
     )
     parser.add_argument("--env", default="local", help="Configuration overlay name")
     parser.add_argument("--config-dir", default="config", help="Directory containing YAML config")
@@ -44,6 +45,9 @@ def main() -> None:
         config = replace(config, sample_fraction=args.sample_fraction)
     if args.stage == "config":
         print(json.dumps(asdict(config), indent=2))
+        return
+    if args.stage == "ecl":
+        print(json.dumps(asdict(run_cecl(config)), indent=2))
         return
     if args.stage in {"ingest", "panel", "vintage", "transitions"}:
         spark = build_spark_session(config)

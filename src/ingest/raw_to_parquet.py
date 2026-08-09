@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 from urllib.request import urlopen
 
 from pyspark import StorageLevel
@@ -119,9 +119,18 @@ def _acquisition_quality(frame: DataFrame) -> DataFrame:
         [
             ("acquisition_missing_loan_id", F.col("loan_id").isNull() | (F.trim("loan_id") == "")),
             ("acquisition_invalid_origination_month", F.col("origination_month").isNull()),
-            ("acquisition_invalid_original_upb", F.col("original_upb").isNull() | (F.col("original_upb") <= 0)),
-            ("acquisition_invalid_original_term", F.col("original_term").isNull() | (F.col("original_term") <= 0)),
-            ("acquisition_invalid_score", F.col("orig_score").isNull() | ~F.col("orig_score").between(300, 850)),
+            (
+                "acquisition_invalid_original_upb",
+                F.col("original_upb").isNull() | (F.col("original_upb") <= 0),
+            ),
+            (
+                "acquisition_invalid_original_term",
+                F.col("original_term").isNull() | (F.col("original_term") <= 0),
+            ),
+            (
+                "acquisition_invalid_score",
+                F.col("orig_score").isNull() | ~F.col("orig_score").between(300, 850),
+            ),
             ("acquisition_duplicate_loan_id", duplicate),
         ],
     )
@@ -136,8 +145,15 @@ def _performance_quality(frame: DataFrame) -> DataFrame:
         [
             ("performance_missing_loan_id", F.col("loan_id").isNull() | (F.trim("loan_id") == "")),
             ("performance_invalid_as_of_month", F.col("as_of_month").isNull()),
-            ("performance_invalid_current_upb", F.col("current_upb").isNull() | (F.col("current_upb") < 0)),
-            ("performance_invalid_delinquency", F.col("delinquency_status").isNull() | ~F.col("delinquency_status").isin(0, 30, 60, 90, 120, 150, 180)),
+            (
+                "performance_invalid_current_upb",
+                F.col("current_upb").isNull() | (F.col("current_upb") < 0),
+            ),
+            (
+                "performance_invalid_delinquency",
+                F.col("delinquency_status").isNull()
+                | ~F.col("delinquency_status").isin(0, 30, 60, 90, 120, 150, 180),
+            ),
             ("performance_invalid_loan_age", F.col("loan_age").isNull() | (F.col("loan_age") < 0)),
             ("performance_duplicate_loan_month", duplicate),
         ],

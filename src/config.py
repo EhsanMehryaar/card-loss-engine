@@ -95,6 +95,14 @@ class PathConfig:
     transition_coefficients: str
     transition_ground_truth: str
     transition_interpretations: str
+    ecl_summary: str
+    ecl_by_score_band: str
+    ecl_by_vintage: str
+    ecl_monthly: str
+    ecl_plot: str
+    lgd_validation: str
+    lgd_coefficients: str
+    ecl_reconciliation: str
 
 
 @dataclass(frozen=True)

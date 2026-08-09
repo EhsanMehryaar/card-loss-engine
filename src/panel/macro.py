@@ -51,7 +51,10 @@ def prepare_macro_features(frame: DataFrame, config: EngineConfig) -> DataFrame:
     columns are backward-looking alternatives for conditional-model fitting.
     """
 
-    aligned = frame.withColumn(
+    # Macro data is one global monthly series (~350 rows), so its lags require
+    # global calendar order. Make the intentionally tiny single partition
+    # explicit; an unpartitioned window would be unacceptable on the loan panel.
+    aligned = frame.coalesce(1).withColumn(
         "as_of_month", F.trunc(F.col("as_of_month"), "month").cast("date")
     )
     order = Window.orderBy("as_of_month")
@@ -69,9 +72,7 @@ def prepare_macro_features(frame: DataFrame, config: EngineConfig) -> DataFrame:
         F.sum(F.when(F.col("_macro_gap"), 1).otherwise(0)).alias("gaps"),
         F.sum(F.when(F.col("_macro_duplicate"), 1).otherwise(0)).alias("duplicates"),
         *[
-            F.sum(F.when(F.col(column).isNull(), 1).otherwise(0)).alias(
-                f"missing_{column}"
-            )
+            F.sum(F.when(F.col(column).isNull(), 1).otherwise(0)).alias(f"missing_{column}")
             for column in MACRO_VALUE_COLUMNS
         ],
     ).first()
@@ -79,7 +80,9 @@ def prepare_macro_features(frame: DataFrame, config: EngineConfig) -> DataFrame:
     if violations:
         raise ValueError(f"Macro series failed monthly integrity checks: {violations}")
 
-    result = checked.drop("_macro_gap", "_macro_duplicate")
+    # The duplicate check partitions by month; restore the intentional global
+    # series partition before applying the configured calendar lags.
+    result = checked.drop("_macro_gap", "_macro_duplicate").coalesce(1)
     for lag in config.model.macro_lags:
         for column in MACRO_VALUE_COLUMNS:
             result = result.withColumn(f"{column}_lag_{lag}", F.lag(column, lag).over(order))

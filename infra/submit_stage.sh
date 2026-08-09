@@ -29,6 +29,7 @@ spark-submit \
   --conf "spark.executor.memory=${EXECUTOR_MEMORY}" \
   --conf "spark.executor.cores=${EXECUTOR_CORES}" \
   --conf "spark.executor.instances=${NUM_EXECUTORS}" \
+  --conf "spark.dynamicAllocation.enabled=false" \
   --conf "spark.sql.shuffle.partitions=${SHUFFLE_PARTITIONS}" \
   --conf "spark.eventLog.enabled=${EVENT_LOG_ENABLED}" \
   --conf "spark.eventLog.dir=${EVENT_LOG_DIR}" \

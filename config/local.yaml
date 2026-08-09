@@ -12,6 +12,14 @@ paths:
   transition_coefficients: docs/transition_coefficients.csv
   transition_ground_truth: docs/transition_ground_truth_comparison.csv
   transition_interpretations: docs/transition_macro_interpretations.csv
+  ecl_summary: docs/ecl_summary.csv
+  ecl_by_score_band: docs/ecl_by_score_band.csv
+  ecl_by_vintage: docs/ecl_by_vintage.csv
+  ecl_monthly: docs/ecl_monthly_loss_path.csv
+  ecl_plot: docs/ecl_monthly_loss_path.png
+  lgd_validation: docs/lgd_validation_by_era.csv
+  lgd_coefficients: docs/lgd_coefficients.csv
+  ecl_reconciliation: docs/ecl_chain_ladder_reconciliation.csv
 
 sample_fraction: 1.0
 

@@ -12,6 +12,14 @@ paths:
   transition_coefficients: s3://${CLE_S3_BUCKET}/card-loss-engine/output/transition_coefficients.csv
   transition_ground_truth: s3://${CLE_S3_BUCKET}/card-loss-engine/output/transition_ground_truth_comparison.csv
   transition_interpretations: s3://${CLE_S3_BUCKET}/card-loss-engine/output/transition_macro_interpretations.csv
+  ecl_summary: s3://${CLE_S3_BUCKET}/card-loss-engine/output/ecl_summary.csv
+  ecl_by_score_band: s3://${CLE_S3_BUCKET}/card-loss-engine/output/ecl_by_score_band.csv
+  ecl_by_vintage: s3://${CLE_S3_BUCKET}/card-loss-engine/output/ecl_by_vintage.csv
+  ecl_monthly: s3://${CLE_S3_BUCKET}/card-loss-engine/output/ecl_monthly_loss_path.csv
+  ecl_plot: s3://${CLE_S3_BUCKET}/card-loss-engine/output/ecl_monthly_loss_path.png
+  lgd_validation: s3://${CLE_S3_BUCKET}/card-loss-engine/output/lgd_validation_by_era.csv
+  lgd_coefficients: s3://${CLE_S3_BUCKET}/card-loss-engine/output/lgd_coefficients.csv
+  ecl_reconciliation: s3://${CLE_S3_BUCKET}/card-loss-engine/output/ecl_chain_ladder_reconciliation.csv
 
 sample_fraction: 1.0
 
@@ -30,7 +38,8 @@ spark:
 
 # Submit-time settings are inherited by SparkSession.getOrCreate(). One executor
 # per 4-vCPU/16-GiB core node uses 3 cores and 9 GiB, leaving 1 core plus roughly
-# 7 GiB for YARN/OS overhead. Three core nodes therefore run three executors.
+# 7 GiB for YARN/OS overhead. submit_stage.sh disables EMR's default dynamic
+# allocation so the configured three-executor topology is authoritative.
 spark_submit:
   executor_memory: 9g
   executor_cores: 3

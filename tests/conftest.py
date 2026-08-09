@@ -6,7 +6,6 @@ import pytest
 from src.config import load_config
 from src.spark_session import build_spark_session
 
-
 CONFIG_DIR = Path(__file__).parents[1] / "config"
 
 
