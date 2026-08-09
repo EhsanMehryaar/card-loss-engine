@@ -24,15 +24,15 @@ def _write_vintage(portfolio: generator.SyntheticPortfolio, root: Path, year: in
     performance = portfolio.performance.copy()
     acquisition["loan_id"] = acquisition["loan_id"].map(mapping)
     performance["loan_id"] = performance["loan_id"].map(mapping)
-    acquisition_path = root / "raw" / "acquisition" / f"vintage_year={year}"
-    performance_path = root / "raw" / "performance" / f"vintage_year={year}"
+    acquisition_path = root / "raw" / "acquisition"
+    performance_path = root / "raw" / "performance"
     acquisition_path.mkdir(parents=True, exist_ok=True)
     performance_path.mkdir(parents=True, exist_ok=True)
     acquisition.drop(columns=["censoring_date"], errors="ignore").to_csv(
-        acquisition_path / "synthetic_acquisition.txt", sep="|", index=False
+        acquisition_path / f"acquisition_{year}.txt", sep="|", index=False
     )
     performance.to_csv(
-        performance_path / "synthetic_performance.txt", sep="|", index=False
+        performance_path / f"performance_{year}.txt", sep="|", index=False
     )
     return len(performance)
 

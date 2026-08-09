@@ -341,7 +341,7 @@ def run_ingestion(spark: SparkSession, config: EngineConfig) -> IngestionReport:
             raise ValueError("Hash sampling selected zero loans; increase sample_fraction")
         acquisition_checked.unpersist(blocking=False)
         sampled_performance = (
-            valid_performance.join(
+            valid_performance.drop("vintage_year").join(
                 sampled_acquisition.select("loan_id", "vintage_year"), "loan_id", "inner"
             )
             .persist(StorageLevel.MEMORY_AND_DISK)

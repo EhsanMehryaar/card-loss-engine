@@ -1,4 +1,5 @@
 from dataclasses import replace
+from pathlib import Path
 
 from pyspark.sql import Window
 from pyspark.sql import functions as F
@@ -67,3 +68,42 @@ def test_ten_percent_hash_sample_keeps_complete_contiguous_histories(
         .count()
     )
     assert gaps == 0
+
+
+def test_ingestion_ignores_partition_discovered_vintage_year(
+    spark, quality_config, tmp_path
+) -> None:
+    root = tmp_path / "partitioned-raw"
+    config = replace(
+        quality_config,
+        paths=replace(
+            quality_config.paths,
+            raw_acquisition=(root / "raw" / "acquisition").as_posix(),
+            raw_performance=(root / "raw" / "performance").as_posix(),
+            curated=(root / "curated").as_posix(),
+        ),
+        sample_fraction=1.0,
+        synthetic=replace(
+            quality_config.synthetic,
+            number_of_loans=12,
+            max_observation_months=6,
+        ),
+    )
+    fixture = generate_portfolio(config)
+    acquisition_dir = Path(config.paths.raw_acquisition) / "vintage_year=1999"
+    performance_dir = Path(config.paths.raw_performance) / "vintage_year=1999"
+    acquisition_dir.mkdir(parents=True)
+    performance_dir.mkdir(parents=True)
+    fixture.acquisition.drop(columns=["censoring_date"], errors="ignore").to_csv(
+        acquisition_dir / "acquisition.txt", sep="|", index=False
+    )
+    fixture.performance.to_csv(
+        performance_dir / "performance.txt", sep="|", index=False
+    )
+
+    report = run_ingestion(spark, config)
+
+    assert report.acquisition_rows_after_sampling == len(fixture.acquisition)
+    assert report.performance_rows_after_sampling == len(fixture.performance)
+    curated = spark.read.parquet(report.performance_output)
+    assert curated.columns.count("vintage_year") == 1
