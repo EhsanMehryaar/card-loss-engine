@@ -1,0 +1,22 @@
+paths:
+  raw_acquisition: ${CLE_DATA_ROOT}/raw/acquisition
+  raw_performance: ${CLE_DATA_ROOT}/raw/performance
+  curated: ${CLE_DATA_ROOT}/curated
+  macro: ${CLE_DATA_ROOT}/raw/macro/unemployment.csv
+  output: ${CLE_DATA_ROOT}/output
+  vintage_plot: docs/vintage_curves.png
+  vintage_table: docs/vintage_ultimate_rates.csv
+  vintage_annual_table: docs/vintage_ultimate_rates_annual.csv
+  vintage_backtest_table: docs/vintage_projection_accuracy.csv
+  transition_empirical_table: docs/transition_matrix_empirical.csv
+  transition_coefficients: docs/transition_coefficients.csv
+  transition_ground_truth: docs/transition_ground_truth_comparison.csv
+  transition_interpretations: docs/transition_macro_interpretations.csv
+
+sample_fraction: 1.0
+
+spark:
+  master: local[*]
+  app_name: card-loss-engine-local
+  driver_memory: 2g
+  shuffle_partitions: 8

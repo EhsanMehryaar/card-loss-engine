@@ -1,0 +1,2 @@
+"""Account-month panel construction."""
+

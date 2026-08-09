@@ -1,0 +1,39 @@
+paths:
+  raw_acquisition: s3://${CLE_S3_BUCKET}/card-loss-engine/raw/acquisition
+  raw_performance: s3://${CLE_S3_BUCKET}/card-loss-engine/raw/performance
+  curated: s3://${CLE_S3_BUCKET}/card-loss-engine/curated
+  macro: s3://${CLE_S3_BUCKET}/card-loss-engine/raw/macro/unemployment.csv
+  output: s3://${CLE_S3_BUCKET}/card-loss-engine/output
+  vintage_plot: s3://${CLE_S3_BUCKET}/card-loss-engine/output/vintage_curves.png
+  vintage_table: s3://${CLE_S3_BUCKET}/card-loss-engine/output/vintage_ultimate_rates.csv
+  vintage_annual_table: s3://${CLE_S3_BUCKET}/card-loss-engine/output/vintage_ultimate_rates_annual.csv
+  vintage_backtest_table: s3://${CLE_S3_BUCKET}/card-loss-engine/output/vintage_projection_accuracy.csv
+  transition_empirical_table: s3://${CLE_S3_BUCKET}/card-loss-engine/output/transition_matrix_empirical.csv
+  transition_coefficients: s3://${CLE_S3_BUCKET}/card-loss-engine/output/transition_coefficients.csv
+  transition_ground_truth: s3://${CLE_S3_BUCKET}/card-loss-engine/output/transition_ground_truth_comparison.csv
+  transition_interpretations: s3://${CLE_S3_BUCKET}/card-loss-engine/output/transition_macro_interpretations.csv
+
+sample_fraction: 1.0
+
+ingest:
+  max_records_per_file: 1000000
+
+synthetic:
+  number_of_loans: 250000
+
+spark:
+  master: yarn
+  app_name: card-loss-engine-emr
+  driver_memory: 4g
+  # 12 worker cores (3 core nodes x 4 vCPU); use about 2-3x executor cores.
+  shuffle_partitions: 32
+
+# Submit-time settings are inherited by SparkSession.getOrCreate(). One executor
+# per 4-vCPU/16-GiB core node uses 3 cores and 9 GiB, leaving 1 core plus roughly
+# 7 GiB for YARN/OS overhead. Three core nodes therefore run three executors.
+spark_submit:
+  executor_memory: 9g
+  executor_cores: 3
+  num_executors: 3
+  event_log_enabled: true
+  event_log_dir: s3://${CLE_S3_BUCKET}/spark-events/

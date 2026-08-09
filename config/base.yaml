@@ -1,0 +1,76 @@
+project:
+  name: card-loss-engine
+  seed: 1729
+
+states:
+  ordered:
+    - Current
+    - DPD30
+    - DPD60
+    - DPD90
+    - DPD120
+    - DPD150
+    - ChargeOff
+    - Prepaid
+    - Repurchased
+  dpd_thresholds:
+    DPD30: 30
+    DPD60: 60
+    DPD90: 90
+    DPD120: 120
+    DPD150: 150
+    ChargeOff: 180
+  absorbing:
+    - ChargeOff
+    - Prepaid
+    - Repurchased
+  zero_balance_codes:
+    "01": Prepaid
+    "02": ChargeOff
+    "03": ChargeOff
+    "06": Repurchased
+    "09": ChargeOff
+    "15": ChargeOff
+    "16": Prepaid
+
+model:
+  mob_bands: [0, 12, 24, 36, 60, 120, 360]
+  score_bands: [0, 620, 660, 700, 740, 780, 851]
+  macro_lags: [1, 3, 6]
+  discount_rate_annual: 0.05
+  fallback_lgd: 0.45
+  vintage_analysis_as_of: "2018-12-01"
+  vintage_maturity_mob: 119
+  vintage_cohort_grain: quarterly
+  vintage_primary_denominator: original_balance
+  conditional_regularization_c: 10.0
+  conditional_dpd150_regularization_c: 0.002
+
+ingest:
+  delimiter: "|"
+  header: true
+  date_format: yyyy-MM-dd
+  parse_mode: FAILFAST
+  hash_buckets: 1000000
+  max_records_per_file: 5000000
+  fatal_reasons:
+    - acquisition_missing_loan_id
+    - acquisition_duplicate_loan_id
+    - performance_missing_loan_id
+    - performance_duplicate_loan_month
+    - performance_orphan_loan_id
+  max_exclusion_rate_per_reason: 0.01
+  max_exclusion_rate_overall: 0.02
+
+synthetic:
+  # 25k is the smallest portfolio that yields enough late-stage transitions
+  # to fit a stable conditional multinomial model in Milestone 5.
+  number_of_loans: 25000
+  first_vintage_year: 2000
+  last_vintage_year: 2018
+  max_observation_months: 120
+  unemployment_start: 4.8
+  score_mean: 720.0
+  score_std: 55.0
+  repurchase_rate: 0.0075
+  repurchase_max_mob: 24
