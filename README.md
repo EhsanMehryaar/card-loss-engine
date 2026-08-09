@@ -37,6 +37,15 @@ Current→DPD30 produces the largest severe-versus-baseline increase in expected
 state flow. The EMR run preserves Current→DPD30 to four decimal places at 10×
 portfolio scale: 0.7683% on 250,000 loans versus 0.7678% locally.
 
+### Detailed results
+
+The allowance result for the **local 25,000-loan portfolio** — not the
+250,000-loan EMR scale run — plus its PD/EAD/LGD decompositions, LGD validation,
+monthly loss path, and chain-ladder reconciliation are in
+[`docs/m6_results.md`](docs/m6_results.md). The published-scenario source
+mapping, reversion assumption, three ECL paths, transition attribution, and
+extrapolation diagnostics are in [`docs/m7_results.md`](docs/m7_results.md).
+
 ## Approach
 
 `raw files → curated panel → vintage baseline → conditional transition matrices
@@ -69,7 +78,11 @@ not established. The implementation uses mortgage collateral recovery and
 amortizing EAD, while revolving-card EAD requires undrawn-line conversion. The
 transition specification was tuned three times while consulting synthetic
 truth. Severe scenarios extrapolate beyond observed macro support, with
-uncertainty absent from point estimates. A pre-2007 crisis backtest and executed
+uncertainty absent from point estimates: 84.6% of severely-adverse months exceed
+the pre-cutoff unemployment maximum of 7.25%, and the resulting 7.78x
+severe-to-baseline ECL ratio is well above the 3–5x typical of published CCAR
+mortgage results, so it should not be read as a calibrated real-world estimate.
+A pre-2007 crisis backtest and executed
 PSI/stability monitoring were scoped but not implemented. See the full
 [limitations and governance discussion](docs/model_documentation.md#limitations-and-weaknesses).
 
@@ -94,7 +107,7 @@ therefore portable from local files to S3 without logic changes.
 
 ## Running at scale
 
-The headline result is scale invariance: the 250,000-loan EMR run reproduced the
+The headline infrastructure result is scale invariance: the 250,000-loan EMR run reproduced the
 25,000-loan local run's credit dynamics across a 10x data increase and a
 different execution engine. In particular, Current-to-DPD30 agrees to four
 decimal places.
@@ -161,15 +174,6 @@ M3, and M5 business transformations still run locally and on YARN.
 See [`docs/running_on_aws.md`](docs/running_on_aws.md) for the corrected runbook
 and [`docs/assumptions_log.md`](docs/assumptions_log.md) for the findings and
 design rationale.
-
-The Milestone 6 allowance result for the **local 25,000-loan portfolio**—not the
-250,000-loan EMR scale run—plus its PD/EAD/LGD decompositions, LGD validation,
-monthly loss path, and chain-ladder reconciliation are summarized in
-[`docs/m6_results.md`](docs/m6_results.md).
-
-The published-scenario source mapping, reversion assumption, three ECL paths,
-transition attribution, and extrapolation diagnostics are in
-[`docs/m7_results.md`](docs/m7_results.md).
 
 Local Spark ingestion requires Java 17. On native Windows, Hadoop's local-file
 adapter also requires matching `winutils.exe` and `hadoop.dll` binaries available
