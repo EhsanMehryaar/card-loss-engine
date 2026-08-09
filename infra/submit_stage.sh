@@ -4,6 +4,9 @@ set -euo pipefail
 : "${STAGE:?Set STAGE before sourcing submit_stage.sh}"
 : "${CLE_S3_BUCKET:?Set CLE_S3_BUCKET to an existing S3 bucket}"
 
+export PYSPARK_PYTHON=/usr/bin/python3
+export PYSPARK_DRIVER_PYTHON=/usr/bin/python3
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_FILE="${REPO_ROOT}/config/emr.yaml"
 CONFIG_VALUE=(python3 "${REPO_ROOT}/infra/config_value.py" "${CONFIG_FILE}")

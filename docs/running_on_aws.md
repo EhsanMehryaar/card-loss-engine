@@ -106,6 +106,12 @@ bash infra/submit_transitions.sh
 
 Each submit script uses YARN client mode, `src.zip`, and explicit executor,
 shuffle, and event-log settings read from the checkout's `config/emr.yaml`.
+The bootstrap installs PyYAML and fsspec with `/usr/bin/python3 -m pip`, matching
+the interpreter used by EMR's Spark installation rather than whichever
+`python3` appears first on `PATH`. `infra/submit_stage.sh` also exports both
+`PYSPARK_PYTHON=/usr/bin/python3` and
+`PYSPARK_DRIVER_PYTHON=/usr/bin/python3`, so the Spark driver and executors use
+that same interpreter.
 Because the driver runs in the submitting shell, it loads configuration directly
 from `${REPO_ROOT}/config`; configuration is not distributed with `--files`.
 Client mode preserves the existing access to `sparkContext.uiWebUrl`. The M5

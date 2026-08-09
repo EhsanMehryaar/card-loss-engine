@@ -249,7 +249,8 @@ def _sampled_loans(acquisition: DataFrame, config: EngineConfig) -> DataFrame:
 
 
 def _output_path(root: str, dataset: str) -> str:
-    return f"{root.rstrip('/\\')}/{dataset}"
+    trimmed = root.rstrip("/\\")
+    return f"{trimmed}/{dataset}"
 
 
 def parquet_file_summary(spark: SparkSession, path: str) -> DatasetFileSummary:

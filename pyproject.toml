@@ -39,4 +39,7 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
+# E9 includes parser failures on Ruff versions that expose them as E999. With
+# target-version = "py311", newer Ruff versions always report the equivalent
+# invalid-syntax diagnostic even though E999 itself is no longer selectable.
+select = ["E", "E9", "F", "I", "UP", "B"]

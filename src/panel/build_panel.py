@@ -326,9 +326,10 @@ def _nested_counts(
 def run_panel(spark: SparkSession, config: EngineConfig) -> PanelReport:
     """Read curated data, build the M3 modeling panel, validate, and persist it."""
 
-    acquisition_path = f"{config.paths.curated.rstrip('/\\')}/acquisition"
-    performance_path = f"{config.paths.curated.rstrip('/\\')}/performance"
-    output_path = f"{config.paths.curated.rstrip('/\\')}/panel"
+    curated = config.paths.curated.rstrip("/\\")
+    acquisition_path = f"{curated}/acquisition"
+    performance_path = f"{curated}/performance"
+    output_path = f"{curated}/panel"
     acquisition = spark.read.parquet(acquisition_path)
     performance = spark.read.parquet(performance_path)
     macro = load_macro_features(spark, config)
