@@ -3,10 +3,25 @@ from pathlib import Path
 
 from pyspark.sql import Window
 from pyspark.sql import functions as F
+from pyspark.sql.types import LongType
 
 from src.config import PathConfig
-from src.ingest.raw_to_parquet import run_ingestion
+from src.ingest.raw_to_parquet import _attach_vintage_year, run_ingestion
 from src.ingest.synthetic import generate_portfolio, write_portfolio
+
+
+def test_performance_vintage_year_is_replaced_before_join(spark) -> None:
+    performance = spark.createDataFrame(
+        [("L1", "discovered", 100.0)], ["loan_id", "vintage_year", "current_upb"]
+    )
+    acquisition = spark.createDataFrame(
+        [("L1", 2010)], ["loan_id", "vintage_year"]
+    )
+
+    joined = _attach_vintage_year(performance, acquisition)
+
+    assert joined.columns.count("vintage_year") == 1
+    assert isinstance(joined.schema["vintage_year"].dataType, LongType)
 
 
 def test_ten_percent_hash_sample_keeps_complete_contiguous_histories(

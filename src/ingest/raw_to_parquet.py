@@ -248,6 +248,14 @@ def _sampled_loans(acquisition: DataFrame, config: EngineConfig) -> DataFrame:
     return acquisition.where(bucket < F.lit(cutoff))
 
 
+def _attach_vintage_year(
+    performance: DataFrame, sampled_acquisition: DataFrame
+) -> DataFrame:
+    return performance.drop("vintage_year").join(
+        sampled_acquisition.select("loan_id", "vintage_year"), "loan_id", "inner"
+    )
+
+
 def _output_path(root: str, dataset: str) -> str:
     trimmed = root.rstrip("/\\")
     return f"{trimmed}/{dataset}"
@@ -341,9 +349,7 @@ def run_ingestion(spark: SparkSession, config: EngineConfig) -> IngestionReport:
             raise ValueError("Hash sampling selected zero loans; increase sample_fraction")
         acquisition_checked.unpersist(blocking=False)
         sampled_performance = (
-            valid_performance.drop("vintage_year").join(
-                sampled_acquisition.select("loan_id", "vintage_year"), "loan_id", "inner"
-            )
+            _attach_vintage_year(valid_performance, sampled_acquisition)
             .persist(StorageLevel.MEMORY_AND_DISK)
         )
         sampled_performance_count = sampled_performance.count()
